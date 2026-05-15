@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import { getToken, clearToken } from '../auth'
 
-const API = axios.create({ baseURL: 'http://localhost:8000' })
+const API = axios.create({ baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000' })
 API.interceptors.request.use(config => {
   const token = getToken()
   if (token) config.headers.Authorization = `Bearer ${token}`

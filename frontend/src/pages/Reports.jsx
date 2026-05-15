@@ -4,7 +4,7 @@ import axios from 'axios'
 import { getToken, clearToken } from '../auth'
 import Navbar from '../components/Navbar'
 
-const API = axios.create({ baseURL: 'http://localhost:8000' })
+const API = axios.create({ baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000' })
 API.interceptors.request.use(config => {
   const token = getToken()
   if (token) config.headers.Authorization = `Bearer ${token}`
@@ -53,7 +53,7 @@ export default function Reports() {
     setExporting(true)
     try {
       const token = getToken()
-      const res = await fetch('http://localhost:8000/reports/export', {
+      const res = await fetch((import.meta.env.VITE_API_URL || 'http://localhost:8000') + '/reports/export', {
         headers: { Authorization: `Bearer ${token}` },
       })
       const blob = await res.blob()

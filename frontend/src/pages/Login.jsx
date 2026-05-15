@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import { setToken } from '../auth'
 
-const API = axios.create({ baseURL: 'http://localhost:8000' })
+const API = axios.create({ baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000' })
 
 export default function Login() {
   const [email, setEmail] = useState('')
