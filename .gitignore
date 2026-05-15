@@ -1,0 +1,19 @@
+# Python
+backend/.env
+__pycache__/
+*.pyc
+*.pyo
+.env
+venv/
+.venv/
+gmail_token.json
+credentials.json
+
+# Node
+node_modules/
+dist/
+
+# Misc
+.DS_Store
+*.log
+.claude/
