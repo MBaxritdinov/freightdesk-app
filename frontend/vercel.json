@@ -1,4 +1,3 @@
 {
-  "buildCommand": "npm ci && chmod +x node_modules/.bin/vite && npm run build",
-  "outputDirectory": "dist"
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }
