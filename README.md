@@ -51,7 +51,7 @@ The backend will:
 - Seed an admin user: `admin@freightdesk.io` / `admin123`
 - Seed 8 brokers: 7 STAR, RXO, BBI, CAL, ALG, AST, MTC, Freeway
 
-API docs available at: ${import.meta.env.VITE_API_URL || '${import.meta.env.VITE_API_URL || 'http://localhost:8000'}'}/docs
+API docs available at: ${import.meta.env.VITE_API_URL || '${import.meta.env.VITE_API_URL || ''}'/docs
 
 ### 3. Frontend
 
