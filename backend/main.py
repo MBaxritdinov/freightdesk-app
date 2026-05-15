@@ -1,19 +1,20 @@
-﻿from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+﻿import os
 
-from database import engine, SessionLocal, Base
-from models import User, UserRole, Broker
 from auth import hash_password
+from database import Base, SessionLocal, engine
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from models import Broker, User, UserRole
 from routers import auth as auth_router
-from routers import loads as loads_router
+from routers import dashboard as dashboard_router
 from routers import drivers as drivers_router
 from routers import gmail as gmail_router
+from routers import loads as loads_router
+from routers import notifications as notifications_router
+from routers import reports as reports_router
 from routers import settlements as settlements_router
 from routers import telegram as telegram_router
-from routers import dashboard as dashboard_router
-from routers import reports as reports_router
 from routers import users as users_router
-from routers import notifications as notifications_router
 
 # from gmail_poller import start_polling  # disabled - use manual Sync Now
 
@@ -47,7 +48,7 @@ def seed_data():
             admin = User(
                 name="Admin",
                 email="admin@freightdesk.io",
-                hashed_password=hash_password("admin123"),
+                hashed_password=hash_password(os.getenv("ADMIN_PASSWORD", "changemeiscool")),
                 role=UserRole.HEAD_ACCOUNTANT,
                 is_active=True,
             )
