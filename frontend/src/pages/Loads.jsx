@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import { getToken, clearToken } from '../auth'
@@ -6,23 +6,23 @@ import Navbar from '../components/Navbar'
 
 const API = axios.create({ baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000' })
 
-// Auto-attach token to every request � fixes race condition after login
 API.interceptors.request.use(config => {
   const token = getToken()
-  console.log('Interceptor firing, token:', token ? 'EXISTS' : 'NULL', config.url)
   if (token) config.headers.Authorization = `Bearer ${token}`
   return config
 })
 
-function authHeaders() {
-  return { Authorization: `Bearer ${localStorage.getItem('token')}` }
+function redirectOnUnauth(err, navigate) {
+  if (err.response?.status === 401) { clearToken(); navigate('/login', { replace: true }) }
 }
 
-function redirectOnUnauth(err, navigate) {
-  if (err.response?.status === 401) {
-    clearToken()
-    navigate('/login', { replace: true })
-  }
+function Spinner() {
+  return (
+    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+    </svg>
+  )
 }
 
 // ── Badges ──────────────────────────────────────────────────────────────────
@@ -33,11 +33,7 @@ function ApprovalBadge({ status }) {
     APPROVED: 'bg-green-500/20 text-green-400 border-green-500/30',
     FLAGGED: 'bg-red-500/20 text-red-400 border-red-500/30',
   }
-  return (
-    <span className={`px-2 py-0.5 rounded text-xs font-medium border ${cls[status] ?? ''}`}>
-      {status}
-    </span>
-  )
+  return <span className={`px-2 py-0.5 rounded text-xs font-medium border ${cls[status] ?? ''}`}>{status}</span>
 }
 
 function PaymentBadge({ status }) {
@@ -46,11 +42,7 @@ function PaymentBadge({ status }) {
     INVOICED: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
     RECEIVED: 'bg-green-500/20 text-green-400 border-green-500/30',
   }
-  return (
-    <span className={`px-2 py-0.5 rounded text-xs font-medium border ${cls[status] ?? ''}`}>
-      {status}
-    </span>
-  )
+  return <span className={`px-2 py-0.5 rounded text-xs font-medium border ${cls[status] ?? ''}`}>{status}</span>
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -62,23 +54,117 @@ function fmt(val) {
 
 function fmtDate(d) {
   if (!d) return '—'
-  return new Date(d + 'T00:00:00').toLocaleDateString('en-US', {
-    month: 'short', day: 'numeric', year: 'numeric',
-  })
+  return new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+// ── Upload Load Confirmation Modal ───────────────────────────────────────────
+
+function UploadRateConModal({ onClose, onParsed }) {
+  const [dragging, setDragging] = useState(false)
+  const [parsing, setParsing] = useState(false)
+  const [error, setError] = useState('')
+  const inputRef = useRef()
+
+  async function handleFile(file) {
+    if (!file) return
+    const allowed = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png', 'image/webp']
+    if (!allowed.includes(file.type)) {
+      setError('Unsupported file type. Use PDF, JPG, PNG, or WEBP.')
+      return
+    }
+    setParsing(true)
+    setError('')
+    try {
+      const form = new FormData()
+      form.append('file', file)
+      const res = await API.post('/documents/parse', form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      onParsed(res.data)
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Failed to parse document')
+      setParsing(false)
+    }
+  }
+
+  function onDrop(e) {
+    e.preventDefault()
+    setDragging(false)
+    const file = e.dataTransfer.files[0]
+    handleFile(file)
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+      <div className="bg-slate-800 rounded-xl border border-slate-700 w-full max-w-md">
+        <div className="flex items-center justify-between p-6 border-b border-slate-700">
+          <h2 className="text-lg font-semibold text-white">Upload Load Confirmation</h2>
+          <button onClick={onClose} className="text-slate-400 hover:text-white text-2xl leading-none transition">&times;</button>
+        </div>
+
+        <div className="p-6">
+          {parsing ? (
+            <div className="flex flex-col items-center gap-4 py-10">
+              <Spinner />
+              <p className="text-sm text-slate-400">Reading document…</p>
+            </div>
+          ) : (
+            <>
+              <div
+                onDragOver={e => { e.preventDefault(); setDragging(true) }}
+                onDragLeave={() => setDragging(false)}
+                onDrop={onDrop}
+                onClick={() => inputRef.current?.click()}
+                className={`border-2 border-dashed rounded-xl p-10 flex flex-col items-center gap-3 cursor-pointer transition ${
+                  dragging ? 'border-blue-500 bg-blue-500/5' : 'border-slate-600 hover:border-slate-500 bg-slate-700/20'
+                }`}
+              >
+                <svg className="w-10 h-10 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
+                <div className="text-center">
+                  <p className="text-sm text-white font-medium">Drop file here or click to browse</p>
+                  <p className="text-xs text-slate-500 mt-1">PDF, JPG, PNG, WEBP</p>
+                </div>
+              </div>
+              <input
+                ref={inputRef}
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png,.webp"
+                className="hidden"
+                onChange={e => handleFile(e.target.files[0])}
+              />
+              {error && <p className="text-red-400 text-sm mt-4">{error}</p>}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  )
 }
 
 // ── Add Load Modal ────────────────────────────────────────────────────────────
 
-function AddLoadModal({ brokers, drivers, onClose, onCreated }) {
+function AddLoadModal({ brokers, drivers, onClose, onCreated, prefill }) {
   const [form, setForm] = useState({
-    load_number: '', broker_id: '', driver_id: '',
-    gross_rate: '', cut_rate: '', added_rate: '',
-    payment_method: '', quickpay_deduction: '',
-    pu_date: '', del_date: '', pu_location: '', del_location: '', notes: '',
+    load_number: prefill?.load_number ?? '',
+    broker_id: prefill?.broker_id != null ? String(prefill.broker_id) : '',
+    driver_id: '',
+    gross_rate: prefill?.gross_rate != null ? String(prefill.gross_rate) : '',
+    cut_rate: '', added_rate: '',
+    payment_method: prefill?.payment_method ?? '',
+    quickpay_deduction: '',
+    pu_date: prefill?.pu_date ?? '',
+    del_date: prefill?.del_date ?? '',
+    pu_location: prefill?.pu_location ?? '',
+    del_location: prefill?.del_location ?? '',
+    notes: '',
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const navigate = useNavigate()
+
+  const brokerUnmatched = prefill != null && prefill.broker_id == null
 
   const gross = parseFloat(form.gross_rate) || 0
   const cut = parseFloat(form.cut_rate) || 0
@@ -87,9 +173,7 @@ function AddLoadModal({ brokers, drivers, onClose, onCreated }) {
   const finalRate = gross - cut + added
   const netRate = finalRate - qp
 
-  function set(e) {
-    setForm(f => ({ ...f, [e.target.name]: e.target.value }))
-  }
+  function set(e) { setForm(f => ({ ...f, [e.target.name]: e.target.value })) }
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -127,12 +211,13 @@ function AddLoadModal({ brokers, drivers, onClose, onCreated }) {
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
       <div className="bg-slate-800 rounded-xl border border-slate-700 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-6 border-b border-slate-700">
-          <h2 className="text-lg font-semibold text-white">Add Load</h2>
+          <h2 className="text-lg font-semibold text-white">
+            {prefill ? 'Add Load — Pre-filled from Load Confirmation' : 'Add Load'}
+          </h2>
           <button onClick={onClose} className="text-slate-400 hover:text-white text-2xl leading-none transition">&times;</button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
-          {/* Row 1 */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className={lbl}>Load Number *</label>
@@ -144,6 +229,9 @@ function AddLoadModal({ brokers, drivers, onClose, onCreated }) {
                 <option value="">Select broker…</option>
                 {brokers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
               </select>
+              {brokerUnmatched && (
+                <p className="text-xs text-amber-400 mt-1">Broker not recognized — please select manually</p>
+              )}
             </div>
             <div>
               <label className={lbl}>Driver</label>
@@ -162,7 +250,6 @@ function AddLoadModal({ brokers, drivers, onClose, onCreated }) {
             </div>
           </div>
 
-          {/* Rates */}
           <div className="grid grid-cols-3 gap-4">
             <div>
               <label className={lbl}>Gross Rate *</label>
@@ -190,27 +277,13 @@ function AddLoadModal({ brokers, drivers, onClose, onCreated }) {
             </div>
           </div>
 
-          {/* Dates & locations */}
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className={lbl}>Pickup Date</label>
-              <input name="pu_date" value={form.pu_date} onChange={set} type="date" className={inp} />
-            </div>
-            <div>
-              <label className={lbl}>Delivery Date</label>
-              <input name="del_date" value={form.del_date} onChange={set} type="date" className={inp} />
-            </div>
-            <div>
-              <label className={lbl}>Pickup Location</label>
-              <input name="pu_location" value={form.pu_location} onChange={set} className={inp} placeholder="City, ST" />
-            </div>
-            <div>
-              <label className={lbl}>Delivery Location</label>
-              <input name="del_location" value={form.del_location} onChange={set} className={inp} placeholder="City, ST" />
-            </div>
+            <div><label className={lbl}>Pickup Date</label><input name="pu_date" value={form.pu_date} onChange={set} type="date" className={inp} /></div>
+            <div><label className={lbl}>Delivery Date</label><input name="del_date" value={form.del_date} onChange={set} type="date" className={inp} /></div>
+            <div><label className={lbl}>Pickup Location</label><input name="pu_location" value={form.pu_location} onChange={set} className={inp} placeholder="City, ST" /></div>
+            <div><label className={lbl}>Delivery Location</label><input name="del_location" value={form.del_location} onChange={set} className={inp} placeholder="City, ST" /></div>
           </div>
 
-          {/* Notes */}
           <div>
             <label className={lbl}>Notes</label>
             <textarea name="notes" value={form.notes} onChange={set} rows={3} className={inp} placeholder="Optional notes…" />
@@ -230,54 +303,6 @@ function AddLoadModal({ brokers, drivers, onClose, onCreated }) {
   )
 }
 
-// ── Detail Modal ──────────────────────────────────────────────────────────────
-
-function DetailModal({ load, onClose }) {
-  if (!load) return null
-  const rows = [
-    ['Load Number', load.load_number],
-    ['Broker', load.broker_name],
-    ['Driver', load.driver_name || '—'],
-    ['Pickup', load.pu_location || '—'],
-    ['Delivery', load.del_location || '—'],
-    ['Pickup Date', fmtDate(load.pu_date)],
-    ['Delivery Date', fmtDate(load.del_date)],
-    ['Gross Rate', fmt(load.gross_rate)],
-    ['Cut Rate', fmt(load.cut_rate)],
-    ['Added Rate', fmt(load.added_rate)],
-    ['Final Rate', fmt(load.final_rate)],
-    ['Quickpay Deduction', fmt(load.quickpay_deduction)],
-    ['Net Rate', fmt(load.net_rate)],
-    ['Payment Method', load.payment_method || '—'],
-    ['Payment Status', load.payment_status],
-    ['Approval Status', load.approval_status],
-    ['BOL Signed', load.bol_signed ? 'Yes' : 'No'],
-    ['POD Submitted', load.pod_submitted ? 'Yes' : 'No'],
-    ['Notes', load.notes || '—'],
-  ]
-  return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-slate-800 rounded-xl border border-slate-700 w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-6 border-b border-slate-700">
-          <h2 className="text-lg font-semibold text-white">Load #{load.load_number}</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-white text-2xl leading-none transition">&times;</button>
-        </div>
-        <div className="p-6 space-y-3">
-          {rows.map(([label, value]) => (
-            <div key={label} className="flex items-start gap-4">
-              <span className="text-slate-400 text-sm w-40 shrink-0">{label}</span>
-              <span className="text-white text-sm break-all">{value}</span>
-            </div>
-          ))}
-        </div>
-        <div className="p-6 pt-0">
-          <button onClick={onClose} className="w-full py-2 text-sm text-slate-400 hover:text-white border border-slate-700 rounded-lg transition">Close</button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 // ── Flag Modal ────────────────────────────────────────────────────────────────
 
 function FlagModal({ onClose, onConfirm }) {
@@ -287,18 +312,12 @@ function FlagModal({ onClose, onConfirm }) {
       <div className="bg-slate-800 rounded-xl border border-slate-700 w-full max-w-sm p-6">
         <h2 className="text-lg font-semibold text-white mb-1">Flag Load</h2>
         <p className="text-slate-400 text-sm mb-4">Optionally provide a reason for flagging:</p>
-        <textarea
-          value={reason}
-          onChange={e => setReason(e.target.value)}
-          rows={3}
+        <textarea value={reason} onChange={e => setReason(e.target.value)} rows={3}
           className="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-red-500 transition"
-          placeholder="Reason for flagging…"
-        />
+          placeholder="Reason for flagging…" />
         <div className="flex justify-end gap-3 mt-4">
           <button onClick={onClose} className="px-4 py-2 text-sm text-slate-400 hover:text-white transition">Cancel</button>
-          <button onClick={() => onConfirm(reason)} className="px-5 py-2 bg-red-600 hover:bg-red-500 text-white text-sm rounded-lg font-medium transition">
-            Flag Load
-          </button>
+          <button onClick={() => onConfirm(reason)} className="px-5 py-2 bg-red-600 hover:bg-red-500 text-white text-sm rounded-lg font-medium transition">Flag Load</button>
         </div>
       </div>
     </div>
@@ -320,38 +339,28 @@ export default function Loads() {
   const [paymentFilter, setPaymentFilter] = useState('ALL')
   const [loadingTable, setLoadingTable] = useState(false)
   const [showAdd, setShowAdd] = useState(false)
+  const [showUpload, setShowUpload] = useState(false)
+  const [prefillData, setPrefillData] = useState(null)
   const [flagTarget, setFlagTarget] = useState(null)
   const [brokers, setBrokers] = useState([])
   const [drivers, setDrivers] = useState([])
   const navigate = useNavigate()
 
-  // Init: load user + dropdown data
   useEffect(() => {
     const token = getToken()
     if (!token) { navigate('/login', { replace: true }); return }
-
-    // Small delay to ensure interceptor has the token before firing
     setTimeout(() => {
       API.get('/auth/me')
         .then(r => setUser(r.data))
         .catch(err => {
-          if (err.response?.status === 401) {
-            clearToken()
-            navigate('/login', { replace: true })
-          }
+          if (err.response?.status === 401) { clearToken(); navigate('/login', { replace: true }) }
         })
-
-      Promise.all([
-        API.get('/brokers'),
-        API.get('/drivers'),
-      ]).then(([br, dr]) => {
-        setBrokers(br.data)
-        setDrivers(dr.data)
-      }).catch(() => {})
+      Promise.all([API.get('/brokers'), API.get('/drivers')])
+        .then(([br, dr]) => { setBrokers(br.data); setDrivers(dr.data) })
+        .catch(() => {})
     }, 100)
   }, [])
 
-  // Reload table when filters / page change � wait for user to be set first
   useEffect(() => {
     if (!user) return
     fetchLoads()
@@ -363,7 +372,7 @@ export default function Loads() {
       const params = { page, limit: 20 }
       if (statusFilter !== 'ALL') params.status = statusFilter
       if (paymentFilter !== 'ALL') params.payment_status = paymentFilter
-      const res = await API.get('/loads', { params, headers: authHeaders() })
+      const res = await API.get('/loads', { params })
       setLoads(res.data.items)
       setTotalPages(res.data.pages)
       setTotal(res.data.total)
@@ -378,9 +387,7 @@ export default function Loads() {
     try {
       await API.patch(`/loads/${id}/approve`, {})
       fetchLoads()
-    } catch (err) {
-      redirectOnUnauth(err, navigate)
-    }
+    } catch (err) { redirectOnUnauth(err, navigate) }
   }
 
   async function handleFlag(id, reason) {
@@ -388,29 +395,24 @@ export default function Loads() {
       await API.patch(`/loads/${id}/flag`, { reason: reason || null })
       setFlagTarget(null)
       fetchLoads()
-    } catch (err) {
-      redirectOnUnauth(err, navigate)
-    }
+    } catch (err) { redirectOnUnauth(err, navigate) }
   }
 
-  function handleLogout() {
-    clearToken()
-    navigate('/login')
-  }
-
+  function handleLogout() { clearToken(); navigate('/login') }
   function changeStatus(s) { setStatusFilter(s); setPage(1) }
   function changePayment(s) { setPaymentFilter(s); setPage(1) }
 
+  function handleParsed(data) {
+    setShowUpload(false)
+    setPrefillData(data)
+    setShowAdd(true)
+  }
+
   if (!user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-900">
-        <p className="text-slate-400">Loading…</p>
-      </div>
-    )
+    return <div className="min-h-screen flex items-center justify-center bg-slate-900"><p className="text-slate-400">Loading…</p></div>
   }
 
   const isHA = user.role === 'HEAD_ACCOUNTANT'
-
 
   return (
     <div className="min-h-screen bg-slate-900">
@@ -420,49 +422,48 @@ export default function Loads() {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-bold text-white">Loads</h2>
-          <button
-            onClick={() => setShowAdd(true)}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-lg font-medium transition"
-          >
-            + Add Load
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowUpload(true)}
+              className="px-4 py-2 bg-slate-700 hover:bg-slate-600 border border-slate-600 text-white text-sm rounded-lg font-medium transition flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+              </svg>
+              Upload Load Confirmation
+            </button>
+            <button
+              onClick={() => { setPrefillData(null); setShowAdd(true) }}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-lg font-medium transition"
+            >
+              + Add Load
+            </button>
+          </div>
         </div>
 
         {/* Filters */}
         <div className="flex flex-wrap items-center gap-3 mb-5">
-          {/* Approval status tabs */}
+          {/* Approval status */}
           <div className="flex items-center gap-1 bg-slate-800 rounded-lg p-1 border border-slate-700">
             {STATUS_TABS.map(s => (
-              <button
-                key={s}
-                onClick={() => changeStatus(s)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition ${
-                  statusFilter === s ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'
-                }`}
-              >
+              <button key={s} onClick={() => changeStatus(s)}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition ${statusFilter === s ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}>
                 {s === 'ALL' ? 'All' : s.charAt(0) + s.slice(1).toLowerCase()}
               </button>
             ))}
           </div>
 
-          {/* Payment status tabs */}
+          {/* Payment status */}
           <div className="flex items-center gap-1 bg-slate-800 rounded-lg p-1 border border-slate-700">
             {PAYMENT_TABS.map(s => (
-              <button
-                key={s}
-                onClick={() => changePayment(s)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition ${
-                  paymentFilter === s ? 'bg-slate-600 text-white' : 'text-slate-400 hover:text-white'
-                }`}
-              >
+              <button key={s} onClick={() => changePayment(s)}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition ${paymentFilter === s ? 'bg-slate-600 text-white' : 'text-slate-400 hover:text-white'}`}>
                 {s === 'ALL' ? 'All Payments' : s.charAt(0) + s.slice(1).toLowerCase()}
               </button>
             ))}
           </div>
 
-          {total > 0 && (
-            <span className="text-sm text-slate-500 ml-1">{total} load{total !== 1 ? 's' : ''}</span>
-          )}
+          {total > 0 && <span className="text-sm text-slate-500 ml-1">{total} load{total !== 1 ? 's' : ''}</span>}
         </div>
 
         {/* Table */}
@@ -472,17 +473,13 @@ export default function Loads() {
               <thead>
                 <tr className="border-b border-slate-700">
                   {['Load #', 'Broker', 'Driver', 'Route', 'Dates', 'Gross', 'Net', 'Method', 'Payment', 'BOL / POD', 'Status', 'Actions'].map(col => (
-                    <th key={col} className="text-left px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wide whitespace-nowrap">
-                      {col}
-                    </th>
+                    <th key={col} className="text-left px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wide whitespace-nowrap">{col}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {loadingTable ? (
-                  <tr>
-                    <td colSpan={12} className="text-center py-14 text-slate-500">Loading…</td>
-                  </tr>
+                  <tr><td colSpan={12} className="text-center py-14 text-slate-500">Loading…</td></tr>
                 ) : loads.length === 0 ? (
                   <tr>
                     <td colSpan={12}>
@@ -495,29 +492,19 @@ export default function Loads() {
                           <p className="text-white font-semibold">No loads found</p>
                           <p className="text-slate-400 text-sm mt-1">Add your first load or sync Gmail to import automatically.</p>
                         </div>
-                        <div className="flex items-center gap-3">
-                          <button
-                            onClick={() => navigate('/settings')}
-                            className="px-4 py-2 bg-slate-700 hover:bg-slate-600 border border-slate-600 text-white text-sm rounded-lg font-medium transition"
-                          >
-                            Sync Gmail
-                          </button>
-                        </div>
+                        <button onClick={() => navigate('/settings')} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 border border-slate-600 text-white text-sm rounded-lg font-medium transition">
+                          Sync Gmail
+                        </button>
                       </div>
                     </td>
                   </tr>
                 ) : (
                   loads.map(load => (
-                    <tr
-                      key={load.id}
-                      onClick={() => navigate('/loads/' + load.id)}
-                      className="border-b border-slate-700/50 hover:bg-slate-700/40 cursor-pointer transition"
-                    >
+                    <tr key={load.id} onClick={() => navigate('/loads/' + load.id)}
+                      className="border-b border-slate-700/50 hover:bg-slate-700/40 cursor-pointer transition">
                       <td className="px-4 py-3 font-mono text-white whitespace-nowrap">{load.load_number}</td>
                       <td className="px-4 py-3 text-slate-300 whitespace-nowrap">{load.broker_name}</td>
-                      <td className="px-4 py-3 text-slate-300 whitespace-nowrap">
-                        {load.driver_name ?? <span className="text-slate-600">—</span>}
-                      </td>
+                      <td className="px-4 py-3 text-slate-300 whitespace-nowrap">{load.driver_name ?? <span className="text-slate-600">—</span>}</td>
                       <td className="px-4 py-3 text-slate-300 text-xs whitespace-nowrap">
                         {load.pu_location && load.del_location
                           ? <>{load.pu_location} <span className="text-slate-600 mx-1">→</span> {load.del_location}</>
@@ -533,32 +520,15 @@ export default function Loads() {
                       <td className="px-4 py-3 text-slate-400 text-xs whitespace-nowrap">{load.payment_method ?? '—'}</td>
                       <td className="px-4 py-3 whitespace-nowrap"><PaymentBadge status={load.payment_status} /></td>
                       <td className="px-4 py-3 whitespace-nowrap">
-                        <span
-                          className={`inline-block w-2.5 h-2.5 rounded-full mr-1.5 ${load.bol_signed ? 'bg-green-500' : 'bg-slate-600'}`}
-                          title={`BOL: ${load.bol_signed ? 'Signed' : 'Not signed'}`}
-                        />
-                        <span
-                          className={`inline-block w-2.5 h-2.5 rounded-full ${load.pod_submitted ? 'bg-green-500' : 'bg-slate-600'}`}
-                          title={`POD: ${load.pod_submitted ? 'Submitted' : 'Not submitted'}`}
-                        />
+                        <span className={`inline-block w-2.5 h-2.5 rounded-full mr-1.5 ${load.bol_signed ? 'bg-green-500' : 'bg-slate-600'}`} title={`BOL: ${load.bol_signed ? 'Signed' : 'Not signed'}`} />
+                        <span className={`inline-block w-2.5 h-2.5 rounded-full ${load.pod_submitted ? 'bg-green-500' : 'bg-slate-600'}`} title={`POD: ${load.pod_submitted ? 'Submitted' : 'Not submitted'}`} />
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap"><ApprovalBadge status={load.approval_status} /></td>
-                      {/* Stop click propagation so row-detail doesn't fire */}
                       <td className="px-4 py-3 whitespace-nowrap" onClick={e => e.stopPropagation()}>
                         {isHA && load.approval_status === 'PENDING' && (
                           <div className="flex gap-2">
-                            <button
-                              onClick={() => handleApprove(load.id)}
-                              className="px-2.5 py-1 bg-green-600/20 hover:bg-green-600/40 text-green-400 text-xs rounded border border-green-600/30 transition"
-                            >
-                              Approve
-                            </button>
-                            <button
-                              onClick={() => setFlagTarget(load)}
-                              className="px-2.5 py-1 bg-red-600/20 hover:bg-red-600/40 text-red-400 text-xs rounded border border-red-600/30 transition"
-                            >
-                              Flag
-                            </button>
+                            <button onClick={() => handleApprove(load.id)} className="px-2.5 py-1 bg-green-600/20 hover:bg-green-600/40 text-green-400 text-xs rounded border border-green-600/30 transition">Approve</button>
+                            <button onClick={() => setFlagTarget(load)} className="px-2.5 py-1 bg-red-600/20 hover:bg-red-600/40 text-red-400 text-xs rounded border border-red-600/30 transition">Flag</button>
                           </div>
                         )}
                       </td>
@@ -573,39 +543,25 @@ export default function Loads() {
         {/* Pagination */}
         {totalPages > 1 && (
           <div className="flex items-center justify-between mt-4 px-1">
-            <button
-              onClick={() => setPage(p => Math.max(1, p - 1))}
-              disabled={page === 1}
-              className="px-4 py-2 text-sm text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition"
-            >
-              ← Prev
-            </button>
+            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-4 py-2 text-sm text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition">← Prev</button>
             <span className="text-sm text-slate-500">Page {page} of {totalPages}</span>
-            <button
-              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-              disabled={page === totalPages}
-              className="px-4 py-2 text-sm text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition"
-            >
-              Next →
-            </button>
+            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="px-4 py-2 text-sm text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition">Next →</button>
           </div>
         )}
       </main>
 
-      {/* Modals */}
+      {showUpload && <UploadRateConModal onClose={() => setShowUpload(false)} onParsed={handleParsed} />}
       {showAdd && (
         <AddLoadModal
           brokers={brokers}
           drivers={drivers}
-          onClose={() => setShowAdd(false)}
-          onCreated={() => { setShowAdd(false); fetchLoads() }}
+          prefill={prefillData}
+          onClose={() => { setShowAdd(false); setPrefillData(null) }}
+          onCreated={() => { setShowAdd(false); setPrefillData(null); fetchLoads() }}
         />
       )}
       {flagTarget && (
-        <FlagModal
-          onClose={() => setFlagTarget(null)}
-          onConfirm={reason => handleFlag(flagTarget.id, reason)}
-        />
+        <FlagModal onClose={() => setFlagTarget(null)} onConfirm={reason => handleFlag(flagTarget.id, reason)} />
       )}
     </div>
   )

@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from database import SessionLocal
 from email_parser import parse_rate_confirmation
 from gmail_oauth import get_gmail_service
-from models import ApprovalStatus, Broker, Load, PaymentMethod
+from models import ApprovalStatus, Broker, GmailWhitelist, Load, PaymentMethod
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +18,6 @@ _last_poll_time: datetime | None = None
 
 
 def _decode_body(payload: dict) -> str:
-    """Recursively extract plain-text body from a Gmail message payload."""
     mime = payload.get("mimeType", "")
 
     if mime == "text/plain":
@@ -26,13 +25,11 @@ def _decode_body(payload: dict) -> str:
         if data:
             return base64.urlsafe_b64decode(data + "==").decode("utf-8", errors="replace")
 
-    # Recurse into multipart children, preferring text/plain
     for part in payload.get("parts", []):
         text = _decode_body(part)
         if text.strip():
             return text
 
-    # Fall back to HTML only if nothing else was found
     if mime == "text/html":
         data = payload.get("body", {}).get("data", "")
         if data:
@@ -52,24 +49,50 @@ def _parse_date(s) -> date | None:
 
 
 def _fuzzy_broker(name: str | None, db: Session) -> Broker | None:
-    """Match an extracted broker name against active DB brokers."""
     if not name:
         return None
     brokers = db.query(Broker).filter(Broker.is_active == True).all()
     needle = name.upper().strip()
-    # Exact match first
     for b in brokers:
         if b.name.upper() == needle:
             return b
-    # Substring match
     for b in brokers:
         if b.name.upper() in needle or needle in b.name.upper():
             return b
     return None
 
 
+def _sender_allowed(sender: str, db: Session) -> bool:
+    """Return True if sender matches the whitelist (or whitelist is empty)."""
+    entries = db.query(GmailWhitelist).all()
+    if not entries:
+        return True
+
+    sender_lower = sender.lower().strip()
+    for entry in entries:
+        pattern = entry.email_pattern.lower().strip()
+        if pattern.startswith("@"):
+            # Domain pattern: @bbi.com matches any sender @bbi.com
+            if sender_lower.endswith(pattern):
+                return True
+        else:
+            if sender_lower == pattern:
+                return True
+    return False
+
+
+def _get_sender(msg: dict) -> str:
+    headers = msg.get("payload", {}).get("headers", [])
+    for h in headers:
+        if h.get("name", "").lower() == "from":
+            raw = h.get("value", "")
+            # Extract address from "Name <addr>" format
+            m = re.search(r"<([^>]+)>", raw)
+            return m.group(1) if m else raw
+    return ""
+
+
 def poll_gmail(db: Session) -> dict:
-    """Fetch unread emails from the last 24 h, parse via Claude, create loads."""
     global _last_poll_time
 
     service = get_gmail_service()
@@ -94,7 +117,6 @@ def poll_gmail(db: Session) -> dict:
     for ref in messages:
         msg_id = ref["id"]
 
-        # Skip emails already in the database
         if db.query(Load).filter(Load.email_source_id == msg_id).first():
             skipped += 1
             continue
@@ -103,6 +125,12 @@ def poll_gmail(db: Session) -> dict:
             msg = service.users().messages().get(
                 userId="me", id=msg_id, format="full"
             ).execute()
+
+            sender = _get_sender(msg)
+            if not _sender_allowed(sender, db):
+                logger.info(f"Skipping email {msg_id} from {sender} — not in whitelist")
+                skipped += 1
+                continue
 
             body = _decode_body(msg.get("payload", {}))
             if not body.strip():
@@ -149,7 +177,6 @@ def poll_gmail(db: Session) -> dict:
             db.add(load)
             db.commit()
 
-            # Mark email as read
             service.users().messages().modify(
                 userId="me",
                 id=msg_id,
@@ -173,10 +200,8 @@ def get_last_poll_time() -> datetime | None:
 
 
 def start_polling(app):
-    """Start a daemon thread that polls Gmail every 15 minutes."""
-
     def _loop():
-        time.sleep(30)  # brief delay so server finishes startup first
+        time.sleep(30)
         while True:
             db = SessionLocal()
             try:

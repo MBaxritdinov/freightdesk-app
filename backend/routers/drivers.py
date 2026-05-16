@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from database import get_db
-from models import Driver, DriverType, User, UserRole
-from schemas import DriverCreate, DriverUpdate, DriverResponse, TelegramIdUpdate
 from auth import get_current_user
+from database import get_db
+from models import Driver, DriverType, Load, User, UserRole
+from schemas import DriverCreate, DriverUpdate, DriverResponse, TelegramIdUpdate
 
 router = APIRouter(tags=["drivers"])
 
@@ -54,34 +54,26 @@ def create_driver(
     return _to_response(driver)
 
 
-@router.patch("/{driver_id}/deactivate", response_model=DriverResponse)
-def deactivate_driver(
+@router.delete("/{driver_id}", status_code=204)
+def delete_driver(
     driver_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     if current_user.role != UserRole.HEAD_ACCOUNTANT:
-        raise HTTPException(status_code=403, detail="Only HEAD_ACCOUNTANT can deactivate drivers")
-    driver = _get_or_404(driver_id, db)
-    driver.is_active = False
-    db.commit()
-    db.refresh(driver)
-    return _to_response(driver)
+        raise HTTPException(status_code=403, detail="Only HEAD_ACCOUNTANT can delete drivers")
 
-
-@router.patch("/{driver_id}/activate", response_model=DriverResponse)
-def activate_driver(
-    driver_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    if current_user.role != UserRole.HEAD_ACCOUNTANT:
-        raise HTTPException(status_code=403, detail="Only HEAD_ACCOUNTANT can activate drivers")
     driver = _get_or_404(driver_id, db)
-    driver.is_active = True
+
+    has_loads = db.query(Load).filter(Load.driver_id == driver_id).first()
+    if has_loads:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot delete driver with assigned loads. Reassign or remove loads first.",
+        )
+
+    db.delete(driver)
     db.commit()
-    db.refresh(driver)
-    return _to_response(driver)
 
 
 @router.patch("/{driver_id}/telegram", response_model=DriverResponse)

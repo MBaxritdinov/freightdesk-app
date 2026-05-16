@@ -3,6 +3,7 @@ import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Loads from './pages/Loads'
 import LoadDetail from './pages/LoadDetail'
+import Brokers from './pages/Brokers'
 import Drivers from './pages/Drivers'
 import Reports from './pages/Reports'
 import Settings from './pages/Settings'
@@ -49,6 +50,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <Drivers />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/brokers"
+          element={
+            <ProtectedRoute>
+              <Brokers />
             </ProtectedRoute>
           }
         />

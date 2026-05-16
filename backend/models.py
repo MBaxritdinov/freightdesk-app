@@ -38,6 +38,14 @@ class ApprovalStatus(str, enum.Enum):
     FLAGGED = "FLAGGED"
 
 
+class LoadStatus(str, enum.Enum):
+    NEW = "NEW"
+    ACCEPTED = "ACCEPTED"
+    DISPATCHED = "DISPATCHED"
+    IN_ROUTE = "IN_ROUTE"
+    DELIVERED = "DELIVERED"
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -94,6 +102,7 @@ class Load(Base):
     bol_signed: Mapped[bool] = mapped_column(Boolean, default=False)
     pod_submitted: Mapped[bool] = mapped_column(Boolean, default=False)
     approval_status: Mapped[ApprovalStatus] = mapped_column(Enum(ApprovalStatus), default=ApprovalStatus.PENDING)
+    load_status: Mapped[LoadStatus] = mapped_column(Enum(LoadStatus), default=LoadStatus.NEW, server_default="NEW")
     assigned_by: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
     approved_by: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
@@ -107,6 +116,19 @@ class Load(Base):
     approver: Mapped[Optional["User"]] = relationship("User", foreign_keys=[approved_by])
 
 
+class LoadEvent(Base):
+    __tablename__ = "load_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    load_id: Mapped[int] = mapped_column(Integer, ForeignKey("loads.id"))
+    event_type: Mapped[str] = mapped_column(String(50))
+    description: Mapped[str] = mapped_column(Text)
+    created_by: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    creator: Mapped[Optional["User"]] = relationship("User", foreign_keys=[created_by])
+
+
 class Notification(Base):
     __tablename__ = "notifications"
 
@@ -116,3 +138,12 @@ class Notification(Base):
     is_read: Mapped[bool] = mapped_column(Boolean, default=False)
     link: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class GmailWhitelist(Base):
+    __tablename__ = "gmail_whitelist"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    email_pattern: Mapped[str] = mapped_column(String(255), unique=True)
+    created_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    created_by: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)

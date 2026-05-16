@@ -43,17 +43,6 @@ function TypeBadge({ type }) {
   )
 }
 
-function StatusBadge({ active }) {
-  const cls = active
-    ? 'bg-green-500/20 text-green-400 border-green-500/30'
-    : 'bg-slate-600/40 text-slate-400 border-slate-500/30'
-  return (
-    <span className={`px-2 py-0.5 rounded text-xs font-medium border ${cls}`}>
-      {active ? 'Active' : 'Inactive'}
-    </span>
-  )
-}
-
 // ── Settlement Modal ──────────────────────────────────────────────────────────
 
 function SettlementModal({ driver, onClose, onDriverUpdated }) {
@@ -67,9 +56,7 @@ function SettlementModal({ driver, onClose, onDriverUpdated }) {
   const [sendResult, setSendResult] = useState(null)
   const navigate = useNavigate()
 
-  useEffect(() => {
-    fetchSummary()
-  }, [])
+  useEffect(() => { fetchSummary() }, [])
 
   async function fetchSummary() {
     setSummaryLoading(true)
@@ -89,9 +76,7 @@ function SettlementModal({ driver, onClose, onDriverUpdated }) {
     setSavingId(true)
     setIdSaved(false)
     try {
-      await API.patch(`/drivers/${driver.id}/telegram`, {
-        telegram_chat_id: chatId.trim() || null,
-      })
+      await API.patch(`/drivers/${driver.id}/telegram`, { telegram_chat_id: chatId.trim() || null })
       setIdSaved(true)
       onDriverUpdated()
     } catch (err) {
@@ -105,12 +90,9 @@ function SettlementModal({ driver, onClose, onDriverUpdated }) {
     setSending(true)
     setSendResult(null)
     try {
-      // Auto-save chatId to DB if it changed before sending
       const currentSaved = driver.telegram_chat_id || ''
       if (chatId.trim() !== currentSaved) {
-        await API.patch(`/drivers/${driver.id}/telegram`, {
-          telegram_chat_id: chatId.trim() || null,
-        })
+        await API.patch(`/drivers/${driver.id}/telegram`, { telegram_chat_id: chatId.trim() || null })
         onDriverUpdated()
       }
       const res = await API.post(`/settlements/send/${driver.id}`)
@@ -123,45 +105,30 @@ function SettlementModal({ driver, onClose, onDriverUpdated }) {
     }
   }
 
-  const inp =
-    'flex-1 bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500 transition'
+  const inp = 'flex-1 bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500 transition'
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
       <div className="bg-slate-800 rounded-xl border border-slate-700 w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-slate-700">
           <div>
             <h2 className="text-lg font-semibold text-white">Weekly Settlement</h2>
             <p className="text-sm text-slate-400 mt-0.5">{driver.name}</p>
           </div>
-          <button
-            onClick={onClose}
-            className="text-slate-400 hover:text-white text-2xl leading-none transition"
-          >
-            &times;
-          </button>
+          <button onClick={onClose} className="text-slate-400 hover:text-white text-2xl leading-none transition">&times;</button>
         </div>
 
         <div className="p-6 space-y-5">
-          {/* Summary section */}
           {summaryLoading ? (
-            <div className="flex items-center gap-2 text-slate-500 text-sm">
-              <Spinner />
-              <span>Loading summary…</span>
-            </div>
+            <div className="flex items-center gap-2 text-slate-500 text-sm"><Spinner /><span>Loading summary…</span></div>
           ) : summaryError ? (
             <p className="text-red-400 text-sm">{summaryError}</p>
           ) : summary && (
             <>
               <div className="flex items-center justify-between text-xs text-slate-400 uppercase tracking-wide mb-0.5">
                 <span>Week</span>
-                <span className="text-slate-300 normal-case tracking-normal">
-                  {summary.week_start} – {summary.week_end}
-                </span>
+                <span className="text-slate-300 normal-case tracking-normal">{summary.week_start} – {summary.week_end}</span>
               </div>
-
-              {/* Stats */}
               <div className="grid grid-cols-3 gap-3">
                 <div className="bg-slate-700/50 rounded-lg p-3 border border-slate-600/50 text-center">
                   <p className="text-xs text-slate-400 mb-1">Loads</p>
@@ -176,30 +143,16 @@ function SettlementModal({ driver, onClose, onDriverUpdated }) {
                   <p className="text-base font-bold text-green-400">{fmt(summary.total_net)}</p>
                 </div>
               </div>
-
-              {/* Load list */}
               {summary.loads.length > 0 ? (
                 <div>
                   <p className="text-xs text-slate-400 uppercase tracking-wide mb-2">Loads this week</p>
                   <div className="space-y-1.5 max-h-44 overflow-y-auto pr-1">
                     {summary.loads.map(l => (
-                      <div
-                        key={l.load_number}
-                        className="flex items-center justify-between text-sm px-3 py-2 bg-slate-700/30 rounded border border-slate-600/30"
-                      >
+                      <div key={l.load_number} className="flex items-center justify-between text-sm px-3 py-2 bg-slate-700/30 rounded border border-slate-600/30">
                         <span className="text-white font-mono text-xs">{l.load_number}</span>
                         <div className="flex items-center gap-3">
                           <span className="text-slate-400 text-xs">{l.broker_name}</span>
                           <span className="text-slate-300 text-xs">{fmt(l.gross_rate)}</span>
-                          <span className={`text-xs ${
-                            l.approval_status === 'APPROVED'
-                              ? 'text-green-400'
-                              : l.approval_status === 'FLAGGED'
-                                ? 'text-red-400'
-                                : 'text-yellow-400'
-                          }`}>
-                            {l.approval_status}
-                          </span>
                         </div>
                       </div>
                     ))}
@@ -211,10 +164,8 @@ function SettlementModal({ driver, onClose, onDriverUpdated }) {
             </>
           )}
 
-          {/* Telegram section */}
           <div className="border-t border-slate-700 pt-4 space-y-3">
             <p className="text-sm font-medium text-white">Send via Telegram</p>
-
             <div>
               <label className="block text-xs text-slate-400 mb-1.5">Driver's Telegram Chat ID</label>
               <div className="flex gap-2">
@@ -232,11 +183,7 @@ function SettlementModal({ driver, onClose, onDriverUpdated }) {
                   {savingId ? '…' : idSaved ? '✓ Saved' : 'Save'}
                 </button>
               </div>
-              <p className="text-xs text-slate-500 mt-1.5">
-                Driver can get their Chat ID by messaging your bot on Telegram.
-              </p>
             </div>
-
             <button
               onClick={handleSend}
               disabled={sending || !chatId.trim()}
@@ -245,17 +192,9 @@ function SettlementModal({ driver, onClose, onDriverUpdated }) {
               {sending && <Spinner />}
               {sending ? 'Sending…' : 'Send Settlement via Telegram'}
             </button>
-
             {sendResult && (
-              <div className={`px-3 py-2.5 rounded-lg border text-sm ${
-                sendResult.error
-                  ? 'bg-red-500/10 border-red-500/20 text-red-400'
-                  : 'bg-green-500/10 border-green-500/20 text-green-400'
-              }`}>
-                {sendResult.error
-                  ? sendResult.error
-                  : `Sent! Summary for ${sendResult.load_count} load${sendResult.load_count !== 1 ? 's' : ''} delivered to Telegram.`
-                }
+              <div className={`px-3 py-2.5 rounded-lg border text-sm ${sendResult.error ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-green-500/10 border-green-500/20 text-green-400'}`}>
+                {sendResult.error ? sendResult.error : `Sent! Summary for ${sendResult.load_count} load${sendResult.load_count !== 1 ? 's' : ''} delivered.`}
               </div>
             )}
           </div>
@@ -269,17 +208,12 @@ function SettlementModal({ driver, onClose, onDriverUpdated }) {
 
 function DriverModal({ driver, onClose, onSaved }) {
   const isEdit = !!driver
-  const [form, setForm] = useState({
-    name: driver?.name ?? '',
-    driver_type: driver?.driver_type ?? 'COMPANY',
-  })
+  const [form, setForm] = useState({ name: driver?.name ?? '', driver_type: driver?.driver_type ?? 'COMPANY' })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const navigate = useNavigate()
 
-  function set(e) {
-    setForm(f => ({ ...f, [e.target.name]: e.target.value }))
-  }
+  function set(e) { setForm(f => ({ ...f, [e.target.name]: e.target.value })) }
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -300,35 +234,20 @@ function DriverModal({ driver, onClose, onSaved }) {
     }
   }
 
-  const inp =
-    'w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500 transition'
+  const inp = 'w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500 transition'
   const lbl = 'block text-xs text-slate-400 mb-1'
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
       <div className="bg-slate-800 rounded-xl border border-slate-700 w-full max-w-sm">
         <div className="flex items-center justify-between p-6 border-b border-slate-700">
-          <h2 className="text-lg font-semibold text-white">
-            {isEdit ? 'Edit Driver' : 'Add Driver'}
-          </h2>
-          <button
-            onClick={onClose}
-            className="text-slate-400 hover:text-white text-2xl leading-none transition"
-          >
-            &times;
-          </button>
+          <h2 className="text-lg font-semibold text-white">{isEdit ? 'Edit Driver' : 'Add Driver'}</h2>
+          <button onClick={onClose} className="text-slate-400 hover:text-white text-2xl leading-none transition">&times;</button>
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
             <label className={lbl}>Name *</label>
-            <input
-              name="name"
-              value={form.name}
-              onChange={set}
-              required
-              className={inp}
-              placeholder="Driver name"
-            />
+            <input name="name" value={form.name} onChange={set} required className={inp} placeholder="Driver name" />
           </div>
           <div>
             <label className={lbl}>Type</label>
@@ -339,22 +258,61 @@ function DriverModal({ driver, onClose, onSaved }) {
           </div>
           {error && <p className="text-red-400 text-sm">{error}</p>}
           <div className="flex justify-end gap-3 pt-1">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-sm text-slate-400 hover:text-white transition"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="px-5 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm rounded-lg font-medium transition"
-            >
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-slate-400 hover:text-white transition">Cancel</button>
+            <button type="submit" disabled={saving} className="px-5 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm rounded-lg font-medium transition">
               {saving ? 'Saving…' : isEdit ? 'Save Changes' : 'Add Driver'}
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  )
+}
+
+// ── Delete Confirm Modal ──────────────────────────────────────────────────────
+
+function DeleteConfirmModal({ driver, onClose, onDeleted }) {
+  const [deleting, setDeleting] = useState(false)
+  const [error, setError] = useState('')
+  const navigate = useNavigate()
+
+  async function handleDelete() {
+    setDeleting(true)
+    setError('')
+    try {
+      await API.delete(`/drivers/${driver.id}`)
+      onDeleted()
+    } catch (err) {
+      redirectOnUnauth(err, navigate)
+      setError(err.response?.data?.detail || 'Failed to delete driver')
+      setDeleting(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+      <div className="bg-slate-800 rounded-xl border border-slate-700 w-full max-w-sm p-6">
+        <h2 className="text-base font-semibold text-white mb-2">Delete Driver</h2>
+        <p className="text-sm text-slate-400 mb-1">
+          Are you sure you want to permanently delete <span className="text-white font-medium">{driver.name}</span>?
+        </p>
+        <p className="text-xs text-slate-500 mb-5">This cannot be undone. Drivers with assigned loads cannot be deleted.</p>
+        {error && <p className="text-red-400 text-sm mb-4">{error}</p>}
+        <div className="flex gap-3">
+          <button
+            onClick={handleDelete}
+            disabled={deleting}
+            className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-500 disabled:opacity-60 text-white text-sm rounded-lg font-medium transition"
+          >
+            {deleting ? 'Deleting…' : 'Delete'}
+          </button>
+          <button
+            onClick={onClose}
+            className="flex-1 px-4 py-2 border border-slate-600 hover:border-slate-500 text-slate-300 hover:text-white text-sm rounded-lg transition"
+          >
+            Cancel
+          </button>
+        </div>
       </div>
     </div>
   )
@@ -369,22 +327,17 @@ export default function Drivers() {
   const [showAdd, setShowAdd] = useState(false)
   const [editDriver, setEditDriver] = useState(null)
   const [settlementDriver, setSettlementDriver] = useState(null)
+  const [deleteDriver, setDeleteDriver] = useState(null)
   const navigate = useNavigate()
 
   useEffect(() => {
     const token = getToken()
-    if (!token) {
-      navigate('/login', { replace: true })
-      return
-    }
+    if (!token) { navigate('/login', { replace: true }); return }
     setTimeout(() => {
       API.get('/auth/me')
         .then(r => setUser(r.data))
         .catch(err => {
-          if (err.response?.status === 401) {
-            clearToken()
-            navigate('/login', { replace: true })
-          }
+          if (err.response?.status === 401) { clearToken(); navigate('/login', { replace: true }) }
         })
     }, 100)
   }, [])
@@ -406,18 +359,6 @@ export default function Drivers() {
     }
   }
 
-  async function handleToggle(driver) {
-    try {
-      const endpoint = driver.is_active
-        ? `/drivers/${driver.id}/deactivate`
-        : `/drivers/${driver.id}/activate`
-      await API.patch(endpoint, {})
-      fetchDrivers()
-    } catch (err) {
-      redirectOnUnauth(err, navigate)
-    }
-  }
-
   function handleLogout() {
     clearToken()
     navigate('/login')
@@ -433,21 +374,16 @@ export default function Drivers() {
 
   const isHA = user.role === 'HEAD_ACCOUNTANT'
 
-  const activeCount = drivers.filter(d => d.is_active).length
-
   return (
     <div className="min-h-screen bg-slate-900">
       <Navbar active="Drivers" user={user} onLogout={handleLogout} />
 
       <main className="max-w-7xl mx-auto px-6 py-8">
-        {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
             <h2 className="text-2xl font-bold text-white">Drivers</h2>
             {drivers.length > 0 && (
-              <p className="text-sm text-slate-500 mt-0.5">
-                {activeCount} active &middot; {drivers.length} total
-              </p>
+              <p className="text-sm text-slate-500 mt-0.5">{drivers.length} driver{drivers.length !== 1 ? 's' : ''}</p>
             )}
           </div>
           <button
@@ -458,7 +394,6 @@ export default function Drivers() {
           </button>
         </div>
 
-        {/* Grid */}
         {loading ? (
           <div className="text-center py-20 text-slate-500">Loading…</div>
         ) : drivers.length === 0 ? (
@@ -470,28 +405,17 @@ export default function Drivers() {
               <p className="text-white font-semibold text-lg">No drivers yet</p>
               <p className="text-slate-400 text-sm mt-1">Add your first driver to get started.</p>
             </div>
-            <button
-              onClick={() => setShowAdd(true)}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-lg font-medium transition"
-            >
+            <button onClick={() => setShowAdd(true)} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-lg font-medium transition">
               Add First Driver
             </button>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {drivers.map(driver => (
-              <div
-                key={driver.id}
-                className={`bg-slate-800 rounded-xl border p-5 flex flex-col gap-3 transition ${
-                  driver.is_active ? 'border-slate-700' : 'border-slate-700/50 opacity-60'
-                }`}
-              >
-                {/* Name + Edit */}
+              <div key={driver.id} className="bg-slate-800 rounded-xl border border-slate-700 p-5 flex flex-col gap-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="text-white font-semibold text-base leading-tight truncate">
-                      {driver.name}
-                    </p>
+                    <p className="text-white font-semibold text-base leading-tight truncate">{driver.name}</p>
                     {driver.telegram_chat_id && (
                       <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1">
                         <span>📨</span>
@@ -507,13 +431,10 @@ export default function Drivers() {
                   </button>
                 </div>
 
-                {/* Badges */}
                 <div className="flex items-center gap-2 flex-wrap">
                   <TypeBadge type={driver.driver_type} />
-                  <StatusBadge active={driver.is_active} />
                 </div>
 
-                {/* Action buttons */}
                 <div className="mt-auto flex flex-col gap-2">
                   {isHA && (
                     <button
@@ -525,14 +446,10 @@ export default function Drivers() {
                   )}
                   {isHA && (
                     <button
-                      onClick={() => handleToggle(driver)}
-                      className={`text-xs px-3 py-1.5 rounded border transition ${
-                        driver.is_active
-                          ? 'bg-red-600/10 hover:bg-red-600/20 text-red-400 border-red-600/30'
-                          : 'bg-green-600/10 hover:bg-green-600/20 text-green-400 border-green-600/30'
-                      }`}
+                      onClick={() => setDeleteDriver(driver)}
+                      className="text-xs px-3 py-1.5 rounded border transition bg-red-600/10 hover:bg-red-600/20 text-red-400 border-red-600/30"
                     >
-                      {driver.is_active ? 'Deactivate' : 'Activate'}
+                      Delete
                     </button>
                   )}
                 </div>
@@ -542,29 +459,20 @@ export default function Drivers() {
         )}
       </main>
 
-      {/* Modals */}
       {showAdd && (
-        <DriverModal
-          driver={null}
-          onClose={() => setShowAdd(false)}
-          onSaved={() => { setShowAdd(false); fetchDrivers() }}
-        />
+        <DriverModal driver={null} onClose={() => setShowAdd(false)} onSaved={() => { setShowAdd(false); fetchDrivers() }} />
       )}
       {editDriver && (
-        <DriverModal
-          driver={editDriver}
-          onClose={() => setEditDriver(null)}
-          onSaved={() => { setEditDriver(null); fetchDrivers() }}
-        />
+        <DriverModal driver={editDriver} onClose={() => setEditDriver(null)} onSaved={() => { setEditDriver(null); fetchDrivers() }} />
       )}
       {settlementDriver && (
-        <SettlementModal
-          driver={settlementDriver}
-          onClose={() => setSettlementDriver(null)}
-          onDriverUpdated={() => {
-            fetchDrivers()
-            // Keep modal open, but update the driver ref so chatId label stays current
-          }}
+        <SettlementModal driver={settlementDriver} onClose={() => setSettlementDriver(null)} onDriverUpdated={fetchDrivers} />
+      )}
+      {deleteDriver && (
+        <DeleteConfirmModal
+          driver={deleteDriver}
+          onClose={() => setDeleteDriver(null)}
+          onDeleted={() => { setDeleteDriver(null); fetchDrivers() }}
         />
       )}
     </div>

@@ -21,17 +21,18 @@ function fmtDate(d) {
   return new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
+function fmtTs(iso) {
+  if (!iso) return null
+  return new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
+
 function ApprovalBadge({ status }) {
   const cls = {
     PENDING: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
     APPROVED: 'bg-green-500/20 text-green-400 border-green-500/30',
     FLAGGED: 'bg-red-500/20 text-red-400 border-red-500/30',
   }
-  return (
-    <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${cls[status] ?? ''}`}>
-      {status}
-    </span>
-  )
+  return <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${cls[status] ?? ''}`}>{status}</span>
 }
 
 function PaymentBadge({ status }) {
@@ -40,11 +41,7 @@ function PaymentBadge({ status }) {
     INVOICED: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
     RECEIVED: 'bg-green-500/20 text-green-400 border-green-500/30',
   }
-  return (
-    <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${cls[status] ?? ''}`}>
-      {status}
-    </span>
-  )
+  return <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${cls[status] ?? ''}`}>{status}</span>
 }
 
 function Field({ label, children }) {
@@ -56,55 +53,127 @@ function Field({ label, children }) {
   )
 }
 
-function fmtTs(iso) {
-  if (!iso) return null
-  return new Date(iso).toLocaleString('en-US', {
-    month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
-  })
+// ── Pipeline Bar ──────────────────────────────────────────────────────────────
+
+const PIPELINE_STEPS = ['NEW', 'ACCEPTED', 'DISPATCHED', 'IN_ROUTE', 'DELIVERED']
+const STEP_LABELS = { NEW: 'New', ACCEPTED: 'Accepted', DISPATCHED: 'Dispatched', IN_ROUTE: 'In Route', DELIVERED: 'Delivered' }
+
+function PipelineBar({ currentStatus }) {
+  const currentIdx = PIPELINE_STEPS.indexOf(currentStatus || 'NEW')
+  return (
+    <div className="bg-slate-800 rounded-xl border border-slate-700 p-5 mb-4">
+      <div className="flex items-center">
+        {PIPELINE_STEPS.map((step, i) => {
+          const done = i < currentIdx
+          const active = i === currentIdx
+          return (
+            <div key={step} className="flex items-center flex-1 last:flex-none">
+              <div className="flex flex-col items-center gap-1.5">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border-2 transition ${
+                  done
+                    ? 'bg-green-500/20 border-green-500 text-green-400'
+                    : active
+                      ? 'bg-blue-500/20 border-blue-500 text-blue-400'
+                      : 'bg-slate-700 border-slate-600 text-slate-500'
+                }`}>
+                  {done ? '✓' : i + 1}
+                </div>
+                <span className={`text-xs font-medium whitespace-nowrap ${
+                  done ? 'text-green-400' : active ? 'text-blue-400' : 'text-slate-500'
+                }`}>
+                  {STEP_LABELS[step]}
+                </span>
+              </div>
+              {i < PIPELINE_STEPS.length - 1 && (
+                <div className={`flex-1 h-px mx-2 mb-5 ${i < currentIdx ? 'bg-green-500/40' : 'bg-slate-700'}`} />
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
 }
 
-function Timeline({ load }) {
-  const events = []
+// ── Status Action Button ──────────────────────────────────────────────────────
 
-  events.push({ color: 'blue', label: 'Created', time: fmtTs(load.created_at) })
+const NEXT_ACTION = {
+  NEW: { label: 'Accept Load', next: 'ACCEPTED' },
+  ACCEPTED: { label: 'Dispatch', next: 'DISPATCHED' },
+  DISPATCHED: { label: 'Mark In Route', next: 'IN_ROUTE' },
+  IN_ROUTE: { label: 'Confirm Delivery', next: 'DELIVERED' },
+}
 
-  if (load.email_source_id) {
-    events.push({ color: 'blue', label: 'Parsed from email', time: null })
+function StatusActionButton({ load, user, onUpdated, onError }) {
+  const [loading, setLoading] = useState(false)
+  const action = NEXT_ACTION[load.load_status]
+  if (!action || load.load_status === 'DELIVERED') return null
+  if (user.role !== 'DISPATCHER') return null
+
+  if (action.next === 'DISPATCHED' && !load.driver_id) {
+    return (
+      <div className="text-xs text-slate-500 px-4 py-2 border border-slate-700 rounded-lg">
+        Assign a driver before dispatching
+      </div>
+    )
   }
 
-  if (load.approval_status === 'APPROVED') {
-    events.push({
-      color: 'green',
-      label: `Approved${load.approved_by_name ? ` by ${load.approved_by_name}` : ''}`,
-      time: null,
-    })
-  } else if (load.approval_status === 'FLAGGED') {
-    events.push({ color: 'red', label: 'Flagged', time: null })
+  async function handleAdvance() {
+    setLoading(true)
+    try {
+      const r = await API.patch(`/loads/${load.id}/status`, { status: action.next })
+      onUpdated(r.data)
+    } catch (err) {
+      onError(err.response?.data?.detail || 'Status update failed')
+    } finally {
+      setLoading(false)
+    }
   }
 
-  if (load.bol_signed) {
-    events.push({ color: 'green', label: 'BOL Signed', time: null })
+  return (
+    <button
+      onClick={handleAdvance}
+      disabled={loading}
+      className="px-5 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-60 text-white text-sm rounded-lg font-medium transition"
+    >
+      {loading ? 'Updating…' : action.label}
+    </button>
+  )
+}
+
+// ── Timeline ──────────────────────────────────────────────────────────────────
+
+function Timeline({ events }) {
+  if (!events || events.length === 0) {
+    return (
+      <div className="bg-slate-800 rounded-xl border border-slate-700 p-6 mb-4">
+        <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-3">Timeline</h3>
+        <p className="text-sm text-slate-500">No events yet.</p>
+      </div>
+    )
   }
 
-  if (load.pod_submitted) {
-    events.push({ color: 'green', label: 'POD Submitted', time: null })
+  const dotColor = (type) => {
+    if (type === 'DELIVERED') return 'bg-green-500'
+    if (type === 'FLAGGED' || type === 'CREATED') return 'bg-blue-500'
+    return 'bg-blue-400'
   }
-
-  const dotCls = { green: 'bg-green-500', red: 'bg-red-500', blue: 'bg-blue-500' }
 
   return (
     <div className="bg-slate-800 rounded-xl border border-slate-700 p-6 mb-4">
       <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-5">Timeline</h3>
       <div className="relative">
         {events.map((ev, i) => (
-          <div key={i} className="flex gap-4 relative">
+          <div key={ev.id} className="flex gap-4 relative">
             {i < events.length - 1 && (
               <div className="absolute left-[6px] top-3.5 bottom-0 w-px bg-slate-700" />
             )}
-            <div className={`w-3.5 h-3.5 rounded-full shrink-0 mt-0.5 ring-2 ring-slate-800 ${dotCls[ev.color]}`} />
+            <div className={`w-3.5 h-3.5 rounded-full shrink-0 mt-0.5 ring-2 ring-slate-800 ${dotColor(ev.event_type)}`} />
             <div className="pb-5 min-w-0">
-              <p className="text-sm text-white">{ev.label}</p>
-              {ev.time && <p className="text-xs text-slate-500 mt-0.5">{ev.time}</p>}
+              <p className="text-sm text-white">{ev.description}</p>
+              <p className="text-xs text-slate-500 mt-0.5">
+                {ev.created_by_name ? `${ev.created_by_name} · ` : ''}{fmtTs(ev.created_at)}
+              </p>
             </div>
           </div>
         ))}
@@ -127,18 +196,8 @@ function FlagModal({ onClose, onConfirm }) {
           className="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white text-sm resize-none focus:outline-none focus:border-red-500"
         />
         <div className="flex gap-3 mt-4">
-          <button
-            onClick={() => onConfirm(reason)}
-            className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-500 text-white text-sm rounded-lg font-medium transition"
-          >
-            Flag
-          </button>
-          <button
-            onClick={onClose}
-            className="flex-1 px-4 py-2 border border-slate-600 hover:border-slate-500 text-slate-300 hover:text-white text-sm rounded-lg transition"
-          >
-            Cancel
-          </button>
+          <button onClick={() => onConfirm(reason)} className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-500 text-white text-sm rounded-lg font-medium transition">Flag</button>
+          <button onClick={onClose} className="flex-1 px-4 py-2 border border-slate-600 hover:border-slate-500 text-slate-300 hover:text-white text-sm rounded-lg transition">Cancel</button>
         </div>
       </div>
     </div>
@@ -150,6 +209,7 @@ export default function LoadDetail() {
   const navigate = useNavigate()
   const [user, setUser] = useState(null)
   const [load, setLoad] = useState(null)
+  const [events, setEvents] = useState([])
   const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
@@ -169,6 +229,7 @@ export default function LoadDetail() {
   useEffect(() => {
     if (!user) return
     fetchLoad()
+    fetchEvents()
   }, [user])
 
   async function fetchLoad() {
@@ -182,6 +243,13 @@ export default function LoadDetail() {
     }
   }
 
+  async function fetchEvents() {
+    try {
+      const r = await API.get(`/loads/${id}/events`)
+      setEvents(r.data)
+    } catch {}
+  }
+
   async function patch(fields) {
     try {
       const r = await API.patch(`/loads/${id}`, fields)
@@ -193,9 +261,7 @@ export default function LoadDetail() {
     }
   }
 
-  async function handleToggle(field, value) {
-    await patch({ [field]: value })
-  }
+  async function handleToggle(field, value) { await patch({ [field]: value }) }
 
   async function handleNotesSave() {
     if (notes === (load?.notes ?? '')) return
@@ -229,17 +295,10 @@ export default function LoadDetail() {
     }
   }
 
-  function handleLogout() {
-    clearToken()
-    navigate('/login')
-  }
+  function handleLogout() { clearToken(); navigate('/login') }
 
   if (!user || !load) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-900">
-        <p className="text-slate-400">Loading…</p>
-      </div>
-    )
+    return <div className="min-h-screen flex items-center justify-center bg-slate-900"><p className="text-slate-400">Loading…</p></div>
   }
 
   const isHA = user.role === 'HEAD_ACCOUNTANT'
@@ -250,11 +309,8 @@ export default function LoadDetail() {
 
       <main className="max-w-4xl mx-auto px-6 py-8">
         {/* Back + header */}
-        <div className="flex items-center gap-3 mb-6">
-          <button
-            onClick={() => navigate('/loads')}
-            className="text-sm text-slate-400 hover:text-white transition flex items-center gap-1"
-          >
+        <div className="flex items-center gap-3 mb-4">
+          <button onClick={() => navigate('/loads')} className="text-sm text-slate-400 hover:text-white transition flex items-center gap-1">
             ← Loads
           </button>
           <span className="text-slate-600">/</span>
@@ -269,35 +325,44 @@ export default function LoadDetail() {
           </div>
         )}
 
-        {/* Main details card */}
+        {/* Pipeline bar */}
+        <PipelineBar currentStatus={load.load_status} />
+
+        {/* Status action for dispatchers */}
+        {user.role === 'DISPATCHER' && load.load_status !== 'DELIVERED' && (
+          <div className="bg-slate-800 rounded-xl border border-slate-700 p-5 mb-4 flex items-center gap-4">
+            <div className="flex-1">
+              <p className="text-xs text-slate-400 uppercase tracking-wide mb-0.5">Pipeline Action</p>
+              <p className="text-sm text-slate-300">
+                Current status: <span className="text-white font-medium">{STEP_LABELS[load.load_status] || load.load_status}</span>
+              </p>
+            </div>
+            <StatusActionButton
+              load={load}
+              user={user}
+              onUpdated={updated => { setLoad(updated); fetchEvents() }}
+              onError={setError}
+            />
+          </div>
+        )}
+
+        {/* Main details */}
         <div className="bg-slate-800 rounded-xl border border-slate-700 p-6 mb-4">
           <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-5">Load Details</h3>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-x-8 gap-y-5">
-            <Field label="Load Number">
-              <span className="font-mono">{load.load_number}</span>
-            </Field>
+            <Field label="Load Number"><span className="font-mono">{load.load_number}</span></Field>
             <Field label="Broker">{load.broker_name}</Field>
-            <Field label="Driver">
-              {load.driver_name ?? <span className="text-slate-500">Unassigned</span>}
-            </Field>
+            <Field label="Driver">{load.driver_name ?? <span className="text-slate-500">Unassigned</span>}</Field>
             <Field label="Pickup Date">{fmtDate(load.pu_date)}</Field>
             <Field label="Delivery Date">{fmtDate(load.del_date)}</Field>
-            <Field label="Payment Method">
-              {load.payment_method ?? <span className="text-slate-500">—</span>}
-            </Field>
-            <Field label="Pickup Location">
-              {load.pu_location ?? <span className="text-slate-500">—</span>}
-            </Field>
-            <Field label="Delivery Location">
-              {load.del_location ?? <span className="text-slate-500">—</span>}
-            </Field>
-            <Field label="Payment Status">
-              <PaymentBadge status={load.payment_status} />
-            </Field>
+            <Field label="Payment Method">{load.payment_method ?? <span className="text-slate-500">—</span>}</Field>
+            <Field label="Pickup Location">{load.pu_location ?? <span className="text-slate-500">—</span>}</Field>
+            <Field label="Delivery Location">{load.del_location ?? <span className="text-slate-500">—</span>}</Field>
+            <Field label="Payment Status"><PaymentBadge status={load.payment_status} /></Field>
           </div>
         </div>
 
-        {/* Rates card */}
+        {/* Rates */}
         <div className="bg-slate-800 rounded-xl border border-slate-700 p-6 mb-4">
           <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-5">Rates</h3>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-x-8 gap-y-5">
@@ -310,41 +375,29 @@ export default function LoadDetail() {
           </div>
         </div>
 
-        {/* Documents card */}
+        {/* Documents */}
         <div className="bg-slate-800 rounded-xl border border-slate-700 p-6 mb-4">
           <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-5">Documents</h3>
           <div className="flex flex-col gap-4">
             <label className="flex items-center gap-3 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={load.bol_signed}
-                onChange={e => handleToggle('bol_signed', e.target.checked)}
-                className="w-4 h-4 rounded border-slate-500 bg-slate-700 text-blue-500 focus:ring-blue-500 focus:ring-offset-slate-800"
-              />
+              <input type="checkbox" checked={load.bol_signed} onChange={e => handleToggle('bol_signed', e.target.checked)}
+                className="w-4 h-4 rounded border-slate-500 bg-slate-700 text-blue-500 focus:ring-blue-500 focus:ring-offset-slate-800" />
               <span className="text-sm text-white">BOL Signed</span>
-              {load.bol_signed && (
-                <span className="text-xs text-green-400">✓ Signed</span>
-              )}
+              {load.bol_signed && <span className="text-xs text-green-400">✓ Signed</span>}
             </label>
             <label className="flex items-center gap-3 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={load.pod_submitted}
-                onChange={e => handleToggle('pod_submitted', e.target.checked)}
-                className="w-4 h-4 rounded border-slate-500 bg-slate-700 text-blue-500 focus:ring-blue-500 focus:ring-offset-slate-800"
-              />
+              <input type="checkbox" checked={load.pod_submitted} onChange={e => handleToggle('pod_submitted', e.target.checked)}
+                className="w-4 h-4 rounded border-slate-500 bg-slate-700 text-blue-500 focus:ring-blue-500 focus:ring-offset-slate-800" />
               <span className="text-sm text-white">POD Submitted</span>
-              {load.pod_submitted && (
-                <span className="text-xs text-green-400">✓ Submitted</span>
-              )}
+              {load.pod_submitted && <span className="text-xs text-green-400">✓ Submitted</span>}
             </label>
           </div>
         </div>
 
-        {/* Timeline */}
-        <Timeline load={load} />
+        {/* Timeline from events */}
+        <Timeline events={events} />
 
-        {/* Notes card */}
+        {/* Notes */}
         <div className="bg-slate-800 rounded-xl border border-slate-700 p-6 mb-4">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wide">Notes</h3>
@@ -361,23 +414,15 @@ export default function LoadDetail() {
           <p className="text-xs text-slate-500 mt-1.5">Changes saved automatically on blur.</p>
         </div>
 
-        {/* Approval actions — HA only */}
+        {/* Approval — HA only */}
         {isHA && load.approval_status === 'PENDING' && (
           <div className="bg-slate-800 rounded-xl border border-slate-700 p-6">
             <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-4">Approval</h3>
             <div className="flex gap-3">
-              <button
-                onClick={handleApprove}
-                disabled={actionLoading}
-                className="px-5 py-2 bg-green-600 hover:bg-green-500 disabled:opacity-60 text-white text-sm rounded-lg font-medium transition"
-              >
+              <button onClick={handleApprove} disabled={actionLoading} className="px-5 py-2 bg-green-600 hover:bg-green-500 disabled:opacity-60 text-white text-sm rounded-lg font-medium transition">
                 {actionLoading ? 'Processing…' : 'Approve'}
               </button>
-              <button
-                onClick={() => setShowFlag(true)}
-                disabled={actionLoading}
-                className="px-5 py-2 bg-red-600/20 hover:bg-red-600/40 disabled:opacity-60 text-red-400 text-sm rounded-lg font-medium border border-red-600/30 transition"
-              >
+              <button onClick={() => setShowFlag(true)} disabled={actionLoading} className="px-5 py-2 bg-red-600/20 hover:bg-red-600/40 disabled:opacity-60 text-red-400 text-sm rounded-lg font-medium border border-red-600/30 transition">
                 Flag
               </button>
             </div>
@@ -389,18 +434,10 @@ export default function LoadDetail() {
             <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-3">Approval</h3>
             <div className="flex items-center gap-3">
               <ApprovalBadge status={load.approval_status} />
-              <button
-                onClick={handleApprove}
-                disabled={actionLoading || load.approval_status === 'APPROVED'}
-                className="px-4 py-1.5 text-xs border border-slate-600 hover:border-slate-500 text-slate-400 hover:text-white rounded-lg transition disabled:opacity-40"
-              >
+              <button onClick={handleApprove} disabled={actionLoading || load.approval_status === 'APPROVED'} className="px-4 py-1.5 text-xs border border-slate-600 hover:border-slate-500 text-slate-400 hover:text-white rounded-lg transition disabled:opacity-40">
                 Re-approve
               </button>
-              <button
-                onClick={() => setShowFlag(true)}
-                disabled={actionLoading || load.approval_status === 'FLAGGED'}
-                className="px-4 py-1.5 text-xs border border-red-600/30 hover:border-red-500/50 text-red-400 rounded-lg transition disabled:opacity-40"
-              >
+              <button onClick={() => setShowFlag(true)} disabled={actionLoading || load.approval_status === 'FLAGGED'} className="px-4 py-1.5 text-xs border border-red-600/30 hover:border-red-500/50 text-red-400 rounded-lg transition disabled:opacity-40">
                 Re-flag
               </button>
             </div>

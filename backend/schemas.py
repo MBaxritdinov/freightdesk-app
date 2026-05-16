@@ -29,7 +29,7 @@ class UserCreate(BaseModel):
     name: str
     email: str
     password: str
-    role: str  # DISPATCHER or HEAD_ACCOUNTANT
+    role: str
 
 
 class UserUpdate(BaseModel):
@@ -63,6 +63,10 @@ class FlagRequest(BaseModel):
     reason: Optional[str] = None
 
 
+class LoadStatusUpdate(BaseModel):
+    status: str
+
+
 class LoadResponse(BaseModel):
     id: int
     load_number: str
@@ -83,6 +87,7 @@ class LoadResponse(BaseModel):
     payment_method: Optional[str] = None
     payment_status: str
     approval_status: str
+    load_status: str
     bol_signed: bool
     pod_submitted: bool
     notes: Optional[str] = None
@@ -97,6 +102,19 @@ class PaginatedLoads(BaseModel):
     total: int
     page: int
     pages: int
+
+
+class LoadEventResponse(BaseModel):
+    id: int
+    load_id: int
+    event_type: str
+    description: str
+    created_by: Optional[int] = None
+    created_by_name: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
 
 
 class DriverListResponse(BaseModel):
@@ -152,3 +170,40 @@ class NotificationResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class GmailWhitelistCreate(BaseModel):
+    email_pattern: str
+
+
+class GmailWhitelistResponse(BaseModel):
+    id: int
+    email_pattern: str
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class SearchLoad(BaseModel):
+    id: int
+    load_number: str
+    broker_name: str
+    pu_location: Optional[str] = None
+    del_location: Optional[str] = None
+
+
+class SearchDriver(BaseModel):
+    id: int
+    name: str
+
+
+class SearchBroker(BaseModel):
+    id: int
+    name: str
+
+
+class SearchResponse(BaseModel):
+    loads: List[SearchLoad]
+    drivers: List[SearchDriver]
+    brokers: List[SearchBroker]
