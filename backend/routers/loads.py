@@ -69,13 +69,14 @@ def _get_load_or_404(load_id: int, db: Session) -> Load:
     return load
 
 
-def _notify_ha(db: Session, message: str, link: Optional[str] = None):
+def _notify_ha(db: Session, message: str, link: Optional[str] = None, exclude_user_id: Optional[int] = None):
     ha_users = db.query(User).filter(
         User.role == UserRole.HEAD_ACCOUNTANT,
         User.is_active == True,
     ).all()
     for u in ha_users:
-        db.add(Notification(user_id=u.id, message=message, link=link))
+        if exclude_user_id is None or u.id != exclude_user_id:
+            db.add(Notification(user_id=u.id, message=message, link=link))
 
 
 @router.get("/loads", response_model=PaginatedLoads)
@@ -216,7 +217,7 @@ def approve_load(
     load = _get_load_or_404(load_id, db)
     load.approval_status = ApprovalStatus.APPROVED
     load.approved_by = current_user.id
-    _notify_ha(db, f"Load {load.load_number} approved", f"/loads/{load.id}")
+    _notify_ha(db, f"Load {load.load_number} approved", f"/loads/{load.id}", exclude_user_id=current_user.id)
     db.commit()
     return _to_response(_get_load_or_404(load_id, db))
 
@@ -234,8 +235,8 @@ def flag_load(
     load = _get_load_or_404(load_id, db)
     load.approval_status = ApprovalStatus.FLAGGED
     if payload and payload.reason:
-        load.notes = payload.reason
-    _notify_ha(db, f"Load {load.load_number} flagged", f"/loads/{load.id}")
+        load.notes = f"{load.notes}\n[FLAGGED]: {payload.reason}" if load.notes else payload.reason
+    _notify_ha(db, f"Load {load.load_number} flagged", f"/loads/{load.id}", exclude_user_id=current_user.id)
     db.commit()
     return _to_response(_get_load_or_404(load_id, db))
 
