@@ -1,9 +1,12 @@
 import enum
+from typing import Optional
+from datetime import datetime, date
+from decimal import Decimal
 from sqlalchemy import (
-    Column, Integer, String, Boolean, DateTime, Date, Text,
+    Integer, String, Boolean, DateTime, Date, Text,
     Numeric, ForeignKey, Enum, func
 )
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, Mapped, mapped_column
 from database import Base
 
 
@@ -38,78 +41,78 @@ class ApprovalStatus(str, enum.Enum):
 class User(Base):
     __tablename__ = "users"
 
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(255), nullable=False)
-    email = Column(String(255), unique=True, index=True, nullable=False)
-    hashed_password = Column(String(255), nullable=False)
-    role = Column(Enum(UserRole), nullable=False, default=UserRole.ACCOUNTANT)
-    telegram_chat_id = Column(String(100), nullable=True)
-    is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String(255))
+    email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    hashed_password: Mapped[str] = mapped_column(String(255))
+    role: Mapped[UserRole] = mapped_column(Enum(UserRole), default=UserRole.ACCOUNTANT)
+    telegram_chat_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class Driver(Base):
     __tablename__ = "drivers"
 
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(255), nullable=False)
-    driver_type = Column(Enum(DriverType), nullable=False, default=DriverType.COMPANY)
-    telegram_chat_id = Column(String(100), nullable=True)
-    is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String(255))
+    driver_type: Mapped[DriverType] = mapped_column(Enum(DriverType), default=DriverType.COMPANY)
+    telegram_chat_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class Broker(Base):
     __tablename__ = "brokers"
 
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(100), nullable=False, unique=True)
-    full_name = Column(String(255), nullable=True)
-    works_with_rts = Column(Boolean, default=False)
-    is_active = Column(Boolean, default=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String(100), unique=True)
+    full_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    works_with_rts: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
 class Load(Base):
     __tablename__ = "loads"
 
-    id = Column(Integer, primary_key=True, index=True)
-    load_number = Column(Text, nullable=False)
-    broker_id = Column(Integer, ForeignKey("brokers.id"), nullable=False)
-    driver_id = Column(Integer, ForeignKey("drivers.id"), nullable=True)
-    pu_date = Column(Date, nullable=True)
-    del_date = Column(Date, nullable=True)
-    pu_location = Column(Text, nullable=True)
-    del_location = Column(Text, nullable=True)
-    gross_rate = Column(Numeric(10, 2), nullable=False, default=0)
-    cut_rate = Column(Numeric(10, 2), nullable=False, default=0)
-    added_rate = Column(Numeric(10, 2), nullable=False, default=0)
-    final_rate = Column(Numeric(10, 2), nullable=False, default=0)
-    payment_method = Column(Enum(PaymentMethod), nullable=True)
-    quickpay_deduction = Column(Numeric(10, 2), nullable=False, default=0)
-    net_rate = Column(Numeric(10, 2), nullable=False, default=0)
-    payment_status = Column(Enum(PaymentStatus), nullable=False, default=PaymentStatus.PENDING)
-    bol_signed = Column(Boolean, default=False)
-    pod_submitted = Column(Boolean, default=False)
-    approval_status = Column(Enum(ApprovalStatus), nullable=False, default=ApprovalStatus.PENDING)
-    assigned_by = Column(Integer, ForeignKey("users.id"), nullable=True)
-    approved_by = Column(Integer, ForeignKey("users.id"), nullable=True)
-    notes = Column(Text, nullable=True)
-    email_source_id = Column(Text, nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    load_number: Mapped[str] = mapped_column(Text)
+    broker_id: Mapped[int] = mapped_column(Integer, ForeignKey("brokers.id"))
+    driver_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("drivers.id"), nullable=True)
+    pu_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    del_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    pu_location: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    del_location: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    gross_rate: Mapped[Decimal] = mapped_column(Numeric(10, 2), default=0)
+    cut_rate: Mapped[Decimal] = mapped_column(Numeric(10, 2), default=0)
+    added_rate: Mapped[Decimal] = mapped_column(Numeric(10, 2), default=0)
+    final_rate: Mapped[Decimal] = mapped_column(Numeric(10, 2), default=0)
+    payment_method: Mapped[Optional[PaymentMethod]] = mapped_column(Enum(PaymentMethod), nullable=True)
+    quickpay_deduction: Mapped[Decimal] = mapped_column(Numeric(10, 2), default=0)
+    net_rate: Mapped[Decimal] = mapped_column(Numeric(10, 2), default=0)
+    payment_status: Mapped[PaymentStatus] = mapped_column(Enum(PaymentStatus), default=PaymentStatus.PENDING)
+    bol_signed: Mapped[bool] = mapped_column(Boolean, default=False)
+    pod_submitted: Mapped[bool] = mapped_column(Boolean, default=False)
+    approval_status: Mapped[ApprovalStatus] = mapped_column(Enum(ApprovalStatus), default=ApprovalStatus.PENDING)
+    assigned_by: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
+    approved_by: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    email_source_id: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
-    broker = relationship("Broker")
-    driver = relationship("Driver")
-    assigner = relationship("User", foreign_keys=[assigned_by])
-    approver = relationship("User", foreign_keys=[approved_by])
+    broker: Mapped["Broker"] = relationship("Broker")
+    driver: Mapped[Optional["Driver"]] = relationship("Driver")
+    assigner: Mapped[Optional["User"]] = relationship("User", foreign_keys=[assigned_by])
+    approver: Mapped[Optional["User"]] = relationship("User", foreign_keys=[approved_by])
 
 
 class Notification(Base):
     __tablename__ = "notifications"
 
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    message = Column(Text, nullable=False)
-    is_read = Column(Boolean, default=False)
-    link = Column(Text, nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"))
+    message: Mapped[str] = mapped_column(Text)
+    is_read: Mapped[bool] = mapped_column(Boolean, default=False)
+    link: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), server_default=func.now())
