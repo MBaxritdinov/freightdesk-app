@@ -210,6 +210,25 @@ function Timeline({ events }) {
   )
 }
 
+function DeleteConfirmModal({ loadNumber, onClose, onConfirm, loading }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+      <div className="bg-slate-800 rounded-xl border border-slate-700 p-6 w-full max-w-sm mx-4">
+        <h3 className="text-base font-semibold text-white mb-2">Delete Load</h3>
+        <p className="text-sm text-slate-300 mb-5">
+          Are you sure you want to delete load <span className="font-mono text-white">{loadNumber}</span>? This cannot be undone.
+        </p>
+        <div className="flex gap-3">
+          <button onClick={onClose} disabled={loading} className="flex-1 px-4 py-2 border border-slate-600 hover:border-slate-500 text-slate-300 hover:text-white text-sm rounded-lg transition disabled:opacity-50">Cancel</button>
+          <button onClick={onConfirm} disabled={loading} className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white text-sm rounded-lg font-medium transition">
+            {loading ? 'Deleting…' : 'Delete'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function FlagModal({ onClose, onConfirm }) {
   const [reason, setReason] = useState('')
   return (
@@ -249,6 +268,14 @@ export default function LoadDetail() {
   const [etaEdit, setEtaEdit] = useState(false)
   const [etaForm, setEtaForm] = useState({ driver_eta: '', eta_notes: '' })
   const [etaSaving, setEtaSaving] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deleteLoading, setDeleteLoading] = useState(false)
+  const [editMode, setEditMode] = useState(false)
+  const [editForm, setEditForm] = useState({})
+  const [editSaving, setEditSaving] = useState(false)
+  const [successMsg, setSuccessMsg] = useState('')
+  const [brokers, setBrokers] = useState([])
+  const [drivers, setDrivers] = useState([])
 
   useEffect(() => {
     const token = getToken()
@@ -264,6 +291,8 @@ export default function LoadDetail() {
     if (!user) return
     fetchLoad()
     fetchEvents()
+    API.get('/brokers').then(r => setBrokers(r.data)).catch(() => {})
+    API.get('/drivers').then(r => setDrivers(r.data)).catch(() => {})
   }, [user])
 
   async function fetchLoad() {
@@ -399,6 +428,90 @@ export default function LoadDetail() {
     })
   }
 
+  function setEF(e) {
+    setEditForm(f => ({ ...f, [e.target.name]: e.target.value }))
+  }
+
+  function openEdit() {
+    setEditForm({
+      load_number: load.load_number,
+      broker_id: load.broker_id ? String(load.broker_id) : '',
+      driver_id: load.driver_id ? String(load.driver_id) : '',
+      pu_date: load.pu_date ? String(load.pu_date) : '',
+      del_date: load.del_date ? String(load.del_date) : '',
+      pu_location: load.pu_location ?? '',
+      del_location: load.del_location ?? '',
+      pu_address: load.pu_address ?? '',
+      del_address: load.del_address ?? '',
+      pu_time_window: load.pu_time_window ?? '',
+      del_time_window: load.del_time_window ?? '',
+      gross_rate: load.gross_rate != null ? String(load.gross_rate) : '',
+      cut_rate: load.cut_rate != null ? String(load.cut_rate) : '',
+      added_rate: load.added_rate != null ? String(load.added_rate) : '',
+      payment_method: load.payment_method ?? '',
+      reference_number: load.reference_number ?? '',
+      weight: load.weight ?? '',
+      consignee_name: load.consignee_name ?? '',
+      notes: load.notes ?? '',
+    })
+    setEditMode(true)
+    setError('')
+    setSuccessMsg('')
+  }
+
+  async function handleSaveEdit(e) {
+    e.preventDefault()
+    setEditSaving(true)
+    setError('')
+    try {
+      const r = await API.patch(`/loads/${id}`, {
+        load_number: editForm.load_number || undefined,
+        broker_id: editForm.broker_id ? parseInt(editForm.broker_id) : undefined,
+        driver_id: editForm.driver_id ? parseInt(editForm.driver_id) : null,
+        pu_date: editForm.pu_date || null,
+        del_date: editForm.del_date || null,
+        pu_location: editForm.pu_location || null,
+        del_location: editForm.del_location || null,
+        pu_address: editForm.pu_address || null,
+        del_address: editForm.del_address || null,
+        pu_time_window: editForm.pu_time_window || null,
+        del_time_window: editForm.del_time_window || null,
+        gross_rate: editForm.gross_rate ? parseFloat(editForm.gross_rate) : undefined,
+        cut_rate: parseFloat(editForm.cut_rate) || 0,
+        added_rate: parseFloat(editForm.added_rate) || 0,
+        payment_method: editForm.payment_method || null,
+        reference_number: editForm.reference_number || null,
+        weight: editForm.weight || null,
+        consignee_name: editForm.consignee_name || null,
+        notes: editForm.notes || null,
+      })
+      setLoad(r.data)
+      setNotes(r.data.notes ?? '')
+      setEditMode(false)
+      setSuccessMsg('Load updated successfully')
+      setTimeout(() => setSuccessMsg(''), 3000)
+      fetchEvents()
+    } catch (err) {
+      if (err.response?.status === 401) { clearToken(); navigate('/login', { replace: true }) }
+      setError(err.response?.data?.detail || 'Update failed')
+    } finally {
+      setEditSaving(false)
+    }
+  }
+
+  async function handleDelete() {
+    setDeleteLoading(true)
+    try {
+      await API.delete(`/loads/${id}`)
+      navigate('/loads', { replace: true })
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Failed to delete load')
+      setShowDeleteConfirm(false)
+    } finally {
+      setDeleteLoading(false)
+    }
+  }
+
   function handleLogout() { clearToken(); navigate('/login') }
 
   if (!user || !load) {
@@ -407,6 +520,8 @@ export default function LoadDetail() {
 
   const isHA = user.role === 'HEAD_ACCOUNTANT'
   const isDispatcher = user.role === 'DISPATCHER'
+  const inp = 'w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500 transition'
+  const lbl = 'block text-xs text-slate-400 mb-1'
 
   return (
     <div className="min-h-screen bg-slate-900">
@@ -423,6 +538,14 @@ export default function LoadDetail() {
           <ApprovalBadge status={load.approval_status} />
           <div className="flex-1" />
           <div className="flex items-center gap-2 flex-wrap">
+            {isDispatcher && !editMode && (
+              <button
+                onClick={openEdit}
+                className="px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/40 border border-blue-600/30 text-blue-400 hover:text-blue-300 text-xs rounded-lg font-medium transition"
+              >
+                Edit Load
+              </button>
+            )}
             {isDispatcher && (
               <button
                 onClick={handleGenerateBOL}
@@ -454,6 +577,11 @@ export default function LoadDetail() {
           <div className="mb-4 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-lg text-sm text-red-400">
             {error}
             <button onClick={() => setError('')} className="ml-3 text-red-400/70 hover:text-red-400">✕</button>
+          </div>
+        )}
+        {successMsg && (
+          <div className="mb-4 px-4 py-3 bg-green-500/10 border border-green-500/20 rounded-lg text-sm text-green-400">
+            {successMsg}
           </div>
         )}
 
@@ -545,49 +673,125 @@ export default function LoadDetail() {
           </div>
         )}
 
-        {/* Main details */}
-        <div className="bg-slate-800 rounded-xl border border-slate-700 p-6 mb-4">
-          <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-5">Load Details</h3>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-x-8 gap-y-5">
-            <Field label="Load Number"><span className="font-mono">{load.load_number}</span></Field>
-            <Field label="Broker">{load.broker_name}</Field>
-            <Field label="Driver">{load.driver_name ?? <span className="text-slate-500">Unassigned</span>}</Field>
-            <Field label="Pickup">
-              <div>{fmtDate(load.pu_date)}</div>
-              {load.pu_time_window && <div className="text-xs text-slate-500 mt-0.5">{load.pu_time_window}</div>}
-            </Field>
-            <Field label="Delivery">
-              <div>{fmtDate(load.del_date)}</div>
-              {load.del_time_window && <div className="text-xs text-slate-500 mt-0.5">{load.del_time_window}</div>}
-            </Field>
-            {!isDispatcher && <Field label="Payment Method">{load.payment_method ?? <span className="text-slate-500">—</span>}</Field>}
-            <Field label="Pickup Location">
-              <div>{load.pu_location ?? <span className="text-slate-500">—</span>}</div>
-              {load.pu_address && <div className="text-xs text-slate-500 mt-0.5">{load.pu_address}</div>}
-            </Field>
-            <Field label="Delivery Location">
-              <div>{load.del_location ?? <span className="text-slate-500">—</span>}</div>
-              {load.del_address && <div className="text-xs text-slate-500 mt-0.5">{load.del_address}</div>}
-            </Field>
-            {load.consignee_name && <Field label="Consignee">{load.consignee_name}</Field>}
-            {load.reference_number && <Field label="Reference #"><span className="font-mono">{load.reference_number}</span></Field>}
-            {load.weight && <Field label="Weight">{load.weight}</Field>}
-            {!isDispatcher && <Field label="Payment Status"><PaymentBadge status={load.payment_status} /></Field>}
-          </div>
-        </div>
+        {editMode ? (
+          <form id="load-edit-form" onSubmit={handleSaveEdit} className="space-y-4 mb-4">
+            {/* Load Details */}
+            <div className="bg-slate-800 rounded-xl border border-slate-700 p-6">
+              <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-5">Load Details</h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div><label className={lbl}>Load Number *</label><input name="load_number" value={editForm.load_number} onChange={setEF} required className={inp} /></div>
+                <div>
+                  <label className={lbl}>Broker *</label>
+                  <select name="broker_id" value={editForm.broker_id} onChange={setEF} required className={inp}>
+                    <option value="">Select broker…</option>
+                    {brokers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className={lbl}>Driver</label>
+                  <select name="driver_id" value={editForm.driver_id} onChange={setEF} className={inp}>
+                    <option value="">No driver assigned</option>
+                    {drivers.filter(d => d.is_active !== false).map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                  </select>
+                </div>
+                <div><label className={lbl}>Pickup Date</label><input name="pu_date" value={editForm.pu_date} onChange={setEF} type="date" className={inp} /></div>
+                <div><label className={lbl}>Delivery Date</label><input name="del_date" value={editForm.del_date} onChange={setEF} type="date" className={inp} /></div>
+                <div>
+                  <label className={lbl}>Payment Method</label>
+                  <select name="payment_method" value={editForm.payment_method} onChange={setEF} className={inp}>
+                    <option value="">None</option>
+                    <option value="RTS">RTS</option>
+                    <option value="QUICKPAY">QUICKPAY</option>
+                  </select>
+                </div>
+                <div><label className={lbl}>Pickup Location</label><input name="pu_location" value={editForm.pu_location} onChange={setEF} className={inp} placeholder="City, ST" /></div>
+                <div><label className={lbl}>Pickup Address</label><input name="pu_address" value={editForm.pu_address} onChange={setEF} className={inp} /></div>
+                <div><label className={lbl}>Pickup Time Window</label><input name="pu_time_window" value={editForm.pu_time_window} onChange={setEF} className={inp} /></div>
+                <div><label className={lbl}>Delivery Location</label><input name="del_location" value={editForm.del_location} onChange={setEF} className={inp} placeholder="City, ST" /></div>
+                <div><label className={lbl}>Delivery Address</label><input name="del_address" value={editForm.del_address} onChange={setEF} className={inp} /></div>
+                <div><label className={lbl}>Delivery Time Window</label><input name="del_time_window" value={editForm.del_time_window} onChange={setEF} className={inp} /></div>
+                <div><label className={lbl}>Reference #</label><input name="reference_number" value={editForm.reference_number} onChange={setEF} className={inp} /></div>
+                <div><label className={lbl}>Weight</label><input name="weight" value={editForm.weight} onChange={setEF} className={inp} /></div>
+                <div><label className={lbl}>Consignee</label><input name="consignee_name" value={editForm.consignee_name} onChange={setEF} className={inp} /></div>
+              </div>
+            </div>
+            {/* Rates */}
+            <div className="bg-slate-800 rounded-xl border border-slate-700 p-6">
+              <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-5">Rates</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div><label className={lbl}>Gross Rate *</label><input name="gross_rate" value={editForm.gross_rate} onChange={setEF} type="number" step="0.01" required className={inp} /></div>
+                <div><label className={lbl}>Cut Rate</label><input name="cut_rate" value={editForm.cut_rate} onChange={setEF} type="number" step="0.01" className={inp} /></div>
+                <div><label className={lbl}>Added Rate</label><input name="added_rate" value={editForm.added_rate} onChange={setEF} type="number" step="0.01" className={inp} /></div>
+                <div>
+                  <label className={lbl}>Final Rate (auto)</label>
+                  <div className="px-3 py-2 bg-slate-700/50 rounded border border-slate-600 text-green-400 text-sm font-mono">
+                    {fmt((parseFloat(editForm.gross_rate)||0) - (parseFloat(editForm.cut_rate)||0) + (parseFloat(editForm.added_rate)||0))}
+                  </div>
+                </div>
+              </div>
+            </div>
+            {/* Notes */}
+            <div className="bg-slate-800 rounded-xl border border-slate-700 p-6">
+              <label className={lbl}>Notes</label>
+              <textarea name="notes" value={editForm.notes} onChange={setEF} rows={4} className={`${inp} resize-none mt-1`} placeholder="Notes…" />
+            </div>
+            {/* Actions */}
+            <div className="flex gap-3 justify-end">
+              <button type="button" onClick={() => setEditMode(false)} className="px-5 py-2 border border-slate-600 hover:border-slate-500 text-slate-300 hover:text-white text-sm rounded-lg transition">
+                Cancel
+              </button>
+              <button type="submit" disabled={editSaving} className="px-5 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm rounded-lg font-medium transition">
+                {editSaving ? 'Saving…' : 'Save Changes'}
+              </button>
+            </div>
+          </form>
+        ) : (
+          <>
+            {/* Main details */}
+            <div className="bg-slate-800 rounded-xl border border-slate-700 p-6 mb-4">
+              <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-5">Load Details</h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-x-8 gap-y-5">
+                <Field label="Load Number"><span className="font-mono">{load.load_number}</span></Field>
+                <Field label="Broker">{load.broker_name}</Field>
+                <Field label="Driver">{load.driver_name ?? <span className="text-slate-500">Unassigned</span>}</Field>
+                <Field label="Pickup">
+                  <div>{fmtDate(load.pu_date)}</div>
+                  {load.pu_time_window && <div className="text-xs text-slate-500 mt-0.5">{load.pu_time_window}</div>}
+                </Field>
+                <Field label="Delivery">
+                  <div>{fmtDate(load.del_date)}</div>
+                  {load.del_time_window && <div className="text-xs text-slate-500 mt-0.5">{load.del_time_window}</div>}
+                </Field>
+                {!isDispatcher && <Field label="Payment Method">{load.payment_method ?? <span className="text-slate-500">—</span>}</Field>}
+                <Field label="Pickup Location">
+                  <div>{load.pu_location || <span className="text-slate-500">—</span>}</div>
+                  {load.pu_address && <div className="text-xs text-slate-500 mt-0.5">{load.pu_address}</div>}
+                </Field>
+                <Field label="Delivery Location">
+                  <div>{load.del_location || <span className="text-slate-500">—</span>}</div>
+                  {load.del_address && <div className="text-xs text-slate-500 mt-0.5">{load.del_address}</div>}
+                </Field>
+                {load.consignee_name && <Field label="Consignee">{load.consignee_name}</Field>}
+                {load.reference_number && <Field label="Reference #"><span className="font-mono">{load.reference_number}</span></Field>}
+                {load.weight && <Field label="Weight">{load.weight}</Field>}
+                {!isDispatcher && <Field label="Payment Status"><PaymentBadge status={load.payment_status} /></Field>}
+              </div>
+            </div>
 
-        {/* Rates */}
-        <div className="bg-slate-800 rounded-xl border border-slate-700 p-6 mb-4">
-          <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-5">Rates</h3>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-x-8 gap-y-5">
-            <Field label="Gross Rate"><span className="text-white font-mono">{fmt(load.gross_rate)}</span></Field>
-            <Field label="Cut Rate"><span className="font-mono text-red-400">{fmt(load.cut_rate)}</span></Field>
-            <Field label="Added Rate"><span className="font-mono text-green-400">{fmt(load.added_rate)}</span></Field>
-            <Field label="Final Rate"><span className="font-mono">{fmt(load.final_rate)}</span></Field>
-            {!isDispatcher && <Field label="Quickpay Deduction"><span className="font-mono text-red-400">{fmt(load.quickpay_deduction)}</span></Field>}
-            {!isDispatcher && <Field label="Net Rate"><span className="text-green-400 font-mono font-semibold text-base">{fmt(load.net_rate)}</span></Field>}
-          </div>
-        </div>
+            {/* Rates */}
+            <div className="bg-slate-800 rounded-xl border border-slate-700 p-6 mb-4">
+              <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-5">Rates</h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-x-8 gap-y-5">
+                <Field label="Gross Rate"><span className="text-white font-mono">{fmt(load.gross_rate)}</span></Field>
+                <Field label="Cut Rate"><span className="font-mono text-red-400">{fmt(load.cut_rate)}</span></Field>
+                <Field label="Added Rate"><span className="font-mono text-green-400">{fmt(load.added_rate)}</span></Field>
+                <Field label="Final Rate"><span className="font-mono">{fmt(load.final_rate)}</span></Field>
+                {!isDispatcher && <Field label="Quickpay Deduction"><span className="font-mono text-red-400">{fmt(load.quickpay_deduction)}</span></Field>}
+                {!isDispatcher && <Field label="Net Rate"><span className="text-green-400 font-mono font-semibold text-base">{fmt(load.net_rate)}</span></Field>}
+              </div>
+            </div>
+          </>
+        )}
 
         {/* Documents */}
         <div className="bg-slate-800 rounded-xl border border-slate-700 p-6 mb-4">
@@ -611,22 +815,23 @@ export default function LoadDetail() {
         {/* Timeline from events */}
         <Timeline events={events} />
 
-        {/* Notes */}
-        <div className="bg-slate-800 rounded-xl border border-slate-700 p-6 mb-4">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wide">Notes</h3>
-            {saving && <span className="text-xs text-slate-500">Saving…</span>}
+        {!editMode && (
+          <div className="bg-slate-800 rounded-xl border border-slate-700 p-6 mb-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wide">Notes</h3>
+              {saving && <span className="text-xs text-slate-500">Saving…</span>}
+            </div>
+            <textarea
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              onBlur={handleNotesSave}
+              placeholder="Add notes…"
+              rows={4}
+              className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2.5 text-white text-sm resize-none focus:outline-none focus:border-blue-500 transition"
+            />
+            <p className="text-xs text-slate-500 mt-1.5">Changes saved automatically on blur.</p>
           </div>
-          <textarea
-            value={notes}
-            onChange={e => setNotes(e.target.value)}
-            onBlur={handleNotesSave}
-            placeholder="Add notes…"
-            rows={4}
-            className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2.5 text-white text-sm resize-none focus:outline-none focus:border-blue-500 transition"
-          />
-          <p className="text-xs text-slate-500 mt-1.5">Changes saved automatically on blur.</p>
-        </div>
+        )}
 
         {/* Approval — HA only */}
         {isHA && load.approval_status === 'PENDING' && (
@@ -657,9 +862,28 @@ export default function LoadDetail() {
             </div>
           </div>
         )}
+
+        {isDispatcher && !editMode && (
+          <div className="mt-6 pt-4 border-t border-slate-700/50 flex justify-end">
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="px-4 py-2 bg-red-600/10 hover:bg-red-600/20 border border-red-600/30 text-red-400 hover:text-red-300 text-sm rounded-lg font-medium transition"
+            >
+              Delete Load
+            </button>
+          </div>
+        )}
       </main>
 
       {showFlag && <FlagModal onClose={() => setShowFlag(false)} onConfirm={handleFlag} />}
+      {showDeleteConfirm && (
+        <DeleteConfirmModal
+          loadNumber={load.load_number}
+          onClose={() => setShowDeleteConfirm(false)}
+          onConfirm={handleDelete}
+          loading={deleteLoading}
+        />
+      )}
     </div>
   )
 }

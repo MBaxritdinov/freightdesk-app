@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -6,6 +8,8 @@ from database import get_db
 from gmail_oauth import CREDENTIALS_PATH, get_connected_email, get_gmail_service, run_oauth_flow
 from gmail_poller import get_last_poll_time, poll_gmail
 from models import User, UserRole
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["gmail"])
 
@@ -50,8 +54,9 @@ def gmail_connect(current_user: User = Depends(get_current_user)):
     try:
         result = run_oauth_flow()
         return {"connected": True, "email": result["email"]}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"OAuth flow failed: {str(e)}")
+    except Exception:
+        logger.error("OAuth flow failed", exc_info=True)
+        raise HTTPException(status_code=500, detail="Gmail connection failed. Check server logs.")
 
 
 @router.post("/gmail/poll")

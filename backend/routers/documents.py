@@ -4,11 +4,12 @@ import os
 from typing import Optional
 
 import anthropic
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File
 from sqlalchemy.orm import Session
 
 from auth import get_current_user
 from database import get_db
+from limiter import limiter
 from models import Broker, User
 
 router = APIRouter(tags=["documents"])
@@ -42,7 +43,9 @@ _EXTRACT_PROMPT = """Extract the following fields from this rate confirmation / 
 
 
 @router.post("/parse")
+@limiter.limit("20/minute")
 async def parse_document(
+    request: Request,
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -56,6 +59,9 @@ async def parse_document(
         )
 
     data = await file.read()
+    if len(data) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="File too large. Maximum size is 10MB.")
+
     b64 = base64.standard_b64encode(data).decode("utf-8")
 
     api_key = os.getenv("ANTHROPIC_API_KEY")

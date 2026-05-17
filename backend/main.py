@@ -2,8 +2,10 @@ import os
 
 from auth import hash_password
 from database import Base, SessionLocal, engine
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from limiter import limiter
 from models import Broker, User, UserRole
 from routers import auth as auth_router
 from routers import bol as bol_module
@@ -20,18 +22,43 @@ from routers import search as search_router
 from routers import settlements as settlements_router
 from routers import telegram as telegram_router
 from routers import users as users_router
+from slowapi.errors import RateLimitExceeded
+from starlette.middleware.base import BaseHTTPMiddleware
 
 # from gmail_poller import start_polling  # disabled - use manual Sync Now
 
 app = FastAPI(title="FreightDesk API", version="0.1.0")
 
+# Rate limiter
+app.state.limiter = limiter
+
+
+async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    return JSONResponse(status_code=429, content={"detail": "Too many requests, slow down"})
+
+
+app.add_exception_handler(RateLimitExceeded, rate_limit_handler)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["https://freightdesk-app.vercel.app", "http://localhost:5173"],
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        return response
+
+
+app.add_middleware(SecurityHeadersMiddleware)
 
 app.include_router(auth_router.router)
 app.include_router(brokers_router.router, prefix="/brokers")
@@ -52,13 +79,16 @@ app.include_router(bol_module.tracking_router)
 
 
 def seed_data():
+    admin_password = os.getenv("ADMIN_PASSWORD")
+    if not admin_password:
+        raise RuntimeError("ADMIN_PASSWORD env var is required")
     db = SessionLocal()
     try:
         if not db.query(User).filter(User.email == "admin@freightdesk.io").first():
             admin = User(
                 name="Admin",
                 email="admin@freightdesk.io",
-                hashed_password=hash_password(os.getenv("ADMIN_PASSWORD", "changemeiscool")),
+                hashed_password=hash_password(admin_password),
                 role=UserRole.HEAD_ACCOUNTANT,
                 is_active=True,
             )

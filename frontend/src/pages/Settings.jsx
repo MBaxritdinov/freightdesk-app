@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import axios from 'axios'
 import { getToken, clearToken } from '../auth'
 import Navbar from '../components/Navbar'
@@ -64,7 +64,7 @@ function ChangePasswordCard() {
       <p className="text-sm text-slate-400 mb-5">Change your login password.</p>
       <form onSubmit={handleSubmit} className="space-y-4 max-w-sm">
         <div><label className={lbl}>Current Password</label><input name="current_password" type="password" value={form.current_password} onChange={set} required className={inp} /></div>
-        <div><label className={lbl}>New Password</label><input name="new_password" type="password" value={form.new_password} onChange={set} required minLength={6} className={inp} placeholder="Min. 6 characters" /></div>
+        <div><label className={lbl}>New Password</label><input name="new_password" type="password" value={form.new_password} onChange={set} required minLength={8} className={inp} placeholder="Min. 8 characters" /></div>
         <div><label className={lbl}>Confirm New Password</label><input name="confirm_password" type="password" value={form.confirm_password} onChange={set} required className={inp} /></div>
         {result && <p className={`text-sm ${result.error ? 'text-red-400' : 'text-green-400'}`}>{result.error ?? '✓ Password changed successfully'}</p>}
         <button type="submit" disabled={saving} className="px-5 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm rounded-lg font-medium transition">
@@ -421,6 +421,11 @@ export default function Settings() {
 
         {/* Change Password */}
         <ChangePasswordCard />
+
+        <div className="mt-10 pt-6 border-t border-slate-700 flex gap-6 text-sm text-slate-500">
+          <Link to="/privacy" className="hover:text-slate-300 transition">Privacy Policy</Link>
+          <Link to="/terms" className="hover:text-slate-300 transition">Terms of Service</Link>
+        </div>
       </main>
     </div>
   )

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import axios from 'axios'
 import { setToken } from '../auth'
 
@@ -28,7 +28,7 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-900">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-900">
       <div className="w-full max-w-md">
         <div className="bg-slate-800 rounded-2xl shadow-2xl p-8">
           <div className="text-center mb-8">
@@ -84,6 +84,11 @@ export default function Login() {
             </button>
           </form>
         </div>
+        <p className="text-center text-slate-500 text-xs mt-6">
+          <Link to="/privacy" className="hover:text-slate-300 transition">Privacy Policy</Link>
+          <span className="mx-2">&middot;</span>
+          <Link to="/terms" className="hover:text-slate-300 transition">Terms of Service</Link>
+        </p>
       </div>
     </div>
   )

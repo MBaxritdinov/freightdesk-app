@@ -9,6 +9,8 @@ import Reports from './pages/Reports'
 import Settings from './pages/Settings'
 import Users from './pages/Users'
 import TrackingPage from './pages/TrackingPage'
+import PrivacyPolicy from './pages/PrivacyPolicy'
+import Terms from './pages/Terms'
 import { getToken } from './auth'
 
 function ProtectedRoute({ children }) {
@@ -87,6 +89,8 @@ export default function App() {
           }
         />
         <Route path="/track/:loadNumber" element={<TrackingPage />} />
+        <Route path="/privacy" element={<PrivacyPolicy />} />
+        <Route path="/terms" element={<Terms />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </BrowserRouter>

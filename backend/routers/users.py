@@ -39,6 +39,8 @@ def create_user(
     _guard_ha(current_user)
     if db.query(User).filter(User.email == payload.email).first():
         raise HTTPException(status_code=400, detail="Email already in use")
+    if len(payload.password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
     try:
         role = UserRole(payload.role)
     except ValueError:

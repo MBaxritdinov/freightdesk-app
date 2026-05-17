@@ -181,6 +181,14 @@ class LoadUpdate(BaseModel):
     reference_number: Optional[str] = None
     weight: Optional[str] = None
     consignee_name: Optional[str] = None
+    load_number: Optional[str] = None
+    broker_id: Optional[int] = None
+    pu_date: Optional[str] = None
+    del_date: Optional[str] = None
+    gross_rate: Optional[float] = None
+    cut_rate: Optional[float] = None
+    added_rate: Optional[float] = None
+    payment_method: Optional[str] = None
 
 
 class DriverEtaUpdate(BaseModel):

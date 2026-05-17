@@ -139,6 +139,7 @@ def list_loads(
     status: Optional[str] = Query(None),
     payment_status: Optional[str] = Query(None),
     load_status: Optional[str] = Query(None),
+    load_number: Optional[str] = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -147,6 +148,9 @@ def list_loads(
         joinedload(Load.driver),
         joinedload(Load.approver),
     )
+
+    if load_number:
+        query = query.filter(Load.load_number == load_number)
 
     if status:
         try:
@@ -192,6 +196,9 @@ def create_load(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    if db.query(Load).filter(Load.load_number == payload.load_number).first():
+        raise HTTPException(status_code=400, detail=f"Load {payload.load_number} already exists")
+
     if not db.query(Broker).filter(Broker.id == payload.broker_id).first():
         raise HTTPException(status_code=404, detail="Broker not found")
 
@@ -285,9 +292,10 @@ def update_load(
         load.pod_submitted = payload.pod_submitted
     if payload.notes is not None:
         load.notes = payload.notes
-    if payload.driver_id is not None:
-        if not db.query(Driver).filter(Driver.id == payload.driver_id).first():
-            raise HTTPException(status_code=404, detail="Driver not found")
+    if 'driver_id' in payload.model_fields_set:
+        if payload.driver_id is not None:
+            if not db.query(Driver).filter(Driver.id == payload.driver_id).first():
+                raise HTTPException(status_code=404, detail="Driver not found")
         load.driver_id = payload.driver_id
     if payload.payment_status is not None:
         try:
@@ -314,6 +322,35 @@ def update_load(
         load.weight = payload.weight
     if payload.consignee_name is not None:
         load.consignee_name = payload.consignee_name
+    if payload.load_number is not None and payload.load_number != load.load_number:
+        if db.query(Load).filter(Load.load_number == payload.load_number, Load.id != load_id).first():
+            raise HTTPException(status_code=400, detail=f"Load {payload.load_number} already exists")
+        load.load_number = payload.load_number
+    if payload.broker_id is not None:
+        if not db.query(Broker).filter(Broker.id == payload.broker_id).first():
+            raise HTTPException(status_code=404, detail="Broker not found")
+        load.broker_id = payload.broker_id
+    if payload.pu_date is not None:
+        load.pu_date = payload.pu_date or None
+    if payload.del_date is not None:
+        load.del_date = payload.del_date or None
+    if any(f is not None for f in [payload.gross_rate, payload.cut_rate, payload.added_rate]):
+        gross = float(payload.gross_rate) if payload.gross_rate is not None else float(load.gross_rate)
+        cut = float(payload.cut_rate) if payload.cut_rate is not None else float(load.cut_rate)
+        added = float(payload.added_rate) if payload.added_rate is not None else float(load.added_rate)
+        load.gross_rate = gross
+        load.cut_rate = cut
+        load.added_rate = added
+        load.final_rate = gross - cut + added
+        load.net_rate = load.final_rate - float(load.quickpay_deduction)
+    if payload.payment_method is not None:
+        if payload.payment_method:
+            try:
+                load.payment_method = PaymentMethod(payload.payment_method)
+            except ValueError:
+                raise HTTPException(status_code=400, detail=f"Invalid payment_method: {payload.payment_method}")
+        else:
+            load.payment_method = None
 
     if loc_changed and load.pu_location and load.del_location:
         try:
@@ -409,6 +446,25 @@ def update_driver_eta(
     ))
     db.commit()
     return _to_response(_get_load_or_404(load_id, db))
+
+
+@router.delete("/loads/{load_id}", status_code=200)
+def delete_load(
+    load_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if current_user.role != UserRole.DISPATCHER:
+        raise HTTPException(status_code=403, detail="Only DISPATCHER can delete loads")
+
+    load = db.query(Load).filter(Load.id == load_id).first()
+    if not load:
+        raise HTTPException(status_code=404, detail="Load not found")
+
+    db.query(LoadEvent).filter(LoadEvent.load_id == load_id).delete()
+    db.delete(load)
+    db.commit()
+    return {"detail": "Load deleted"}
 
 
 @router.get("/loads/{load_id}/events", response_model=list[LoadEventResponse])

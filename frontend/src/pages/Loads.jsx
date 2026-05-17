@@ -166,7 +166,18 @@ function AddLoadModal({ brokers, drivers, onClose, onCreated, onBrokerAdded, pre
   const [brokerAdded, setBrokerAdded] = useState(false)
   const [rateHistory, setRateHistory] = useState([])
   const [rateHistoryLoading, setRateHistoryLoading] = useState(false)
+  const [dupWarn, setDupWarn] = useState('')
   const navigate = useNavigate()
+
+  async function checkDuplicate(val) {
+    if (!val.trim()) { setDupWarn(''); return }
+    try {
+      const res = await API.get('/loads', { params: { load_number: val.trim(), limit: 1 } })
+      setDupWarn(res.data.total > 0 ? `⚠ Load ${val.trim()} already exists` : '')
+    } catch {
+      setDupWarn('')
+    }
+  }
 
   useEffect(() => {
     if (!isDispatcher) return
@@ -219,6 +230,11 @@ function AddLoadModal({ brokers, drivers, onClose, onCreated, onBrokerAdded, pre
     e.preventDefault()
     setSaving(true)
     setError('')
+    if (!form.driver_id) {
+      setError('Please assign a driver before saving')
+      setSaving(false)
+      return
+    }
     try {
       await API.post('/loads', {
         load_number: form.load_number,
@@ -261,7 +277,8 @@ function AddLoadModal({ brokers, drivers, onClose, onCreated, onBrokerAdded, pre
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className={lbl}>Load Number *</label>
-              <input name="load_number" value={form.load_number} onChange={set} required className={inp} placeholder="e.g. BBI-12345" />
+              <input name="load_number" value={form.load_number} onChange={e => { set(e); setDupWarn('') }} onBlur={e => checkDuplicate(e.target.value)} required className={inp} placeholder="e.g. BBI-12345" />
+              {dupWarn && <p className="text-amber-400 text-xs mt-1">{dupWarn}</p>}
             </div>
             <div>
               <label className={lbl}>Broker *</label>

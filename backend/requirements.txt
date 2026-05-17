@@ -16,3 +16,5 @@ google-api-python-client
 python-telegram-bot
 reportlab
 requests
+slowapi
+limits
