@@ -13,6 +13,7 @@ from models import (
 )
 from schemas import (
     BrokerListResponse,
+    DriverEtaUpdate,
     FlagRequest,
     LoadCreate,
     LoadEventResponse,
@@ -71,6 +72,17 @@ def _to_response(load: Load) -> LoadResponse:
         approved_by=load.approved_by,
         approved_by_name=load.approver.name if load.approver else None,
         created_at=load.created_at,
+        pu_address=load.pu_address,
+        del_address=load.del_address,
+        pu_time_window=load.pu_time_window,
+        del_time_window=load.del_time_window,
+        reference_number=load.reference_number,
+        weight=load.weight,
+        consignee_name=load.consignee_name,
+        distance_miles=load.distance_miles,
+        calculated_eta=load.calculated_eta,
+        driver_eta=load.driver_eta,
+        eta_notes=load.eta_notes,
     )
 
 
@@ -219,9 +231,27 @@ def create_load(
         notes=payload.notes,
         assigned_by=current_user.id,
         load_status=LoadStatus.NEW,
+        pu_address=payload.pu_address,
+        del_address=payload.del_address,
+        pu_time_window=payload.pu_time_window,
+        del_time_window=payload.del_time_window,
+        reference_number=payload.reference_number,
+        weight=payload.weight,
+        consignee_name=payload.consignee_name,
     )
     db.add(load)
     db.flush()
+
+    # Distance & ETA — non-fatal if ORS is unavailable
+    if payload.pu_location and payload.del_location:
+        try:
+            from distance import calculate_distance_and_eta
+            result = calculate_distance_and_eta(payload.pu_location, payload.del_location)
+            if result:
+                load.distance_miles = result["distance_miles"]
+                load.calculated_eta = result["calculated_eta"]
+        except Exception as exc:
+            logger.warning(f"Distance calculation skipped for load {load.id}: {exc}")
 
     db.add(LoadEvent(
         load_id=load.id,
@@ -247,6 +277,8 @@ def update_load(
     current_user: User = Depends(get_current_user),
 ):
     load = _get_load_or_404(load_id, db)
+    loc_changed = False
+
     if payload.bol_signed is not None:
         load.bol_signed = payload.bol_signed
     if payload.pod_submitted is not None:
@@ -262,6 +294,37 @@ def update_load(
             load.payment_status = PaymentStatus(payload.payment_status)
         except ValueError:
             raise HTTPException(status_code=400, detail=f"Invalid payment_status: {payload.payment_status}")
+    if payload.pu_location is not None and payload.pu_location != load.pu_location:
+        load.pu_location = payload.pu_location
+        loc_changed = True
+    if payload.del_location is not None and payload.del_location != load.del_location:
+        load.del_location = payload.del_location
+        loc_changed = True
+    if payload.pu_address is not None:
+        load.pu_address = payload.pu_address
+    if payload.del_address is not None:
+        load.del_address = payload.del_address
+    if payload.pu_time_window is not None:
+        load.pu_time_window = payload.pu_time_window
+    if payload.del_time_window is not None:
+        load.del_time_window = payload.del_time_window
+    if payload.reference_number is not None:
+        load.reference_number = payload.reference_number
+    if payload.weight is not None:
+        load.weight = payload.weight
+    if payload.consignee_name is not None:
+        load.consignee_name = payload.consignee_name
+
+    if loc_changed and load.pu_location and load.del_location:
+        try:
+            from distance import calculate_distance_and_eta
+            result = calculate_distance_and_eta(load.pu_location, load.del_location)
+            if result:
+                load.distance_miles = result["distance_miles"]
+                load.calculated_eta = result["calculated_eta"]
+        except Exception as exc:
+            logger.warning(f"Distance recalculation skipped for load {load_id}: {exc}")
+
     db.commit()
     return _to_response(_get_load_or_404(load_id, db))
 
@@ -316,6 +379,36 @@ def update_load_status(
         _try_telegram(fresh)
 
     return _to_response(fresh)
+
+
+@router.patch("/loads/{load_id}/driver-eta", response_model=LoadResponse)
+def update_driver_eta(
+    load_id: int,
+    payload: DriverEtaUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if current_user.role != UserRole.DISPATCHER:
+        raise HTTPException(status_code=403, detail="Only DISPATCHER can update driver ETA")
+
+    load = _get_load_or_404(load_id, db)
+    load.driver_eta = payload.driver_eta
+    load.eta_notes = payload.eta_notes
+
+    if payload.driver_eta:
+        eta_str = payload.driver_eta.strftime("%b %d, %Y %I:%M %p")
+        desc = f"Driver ETA updated to {eta_str} by {current_user.name}"
+    else:
+        desc = f"Driver ETA cleared by {current_user.name}"
+
+    db.add(LoadEvent(
+        load_id=load.id,
+        event_type="ETA_UPDATED",
+        description=desc,
+        created_by=current_user.id,
+    ))
+    db.commit()
+    return _to_response(_get_load_or_404(load_id, db))
 
 
 @router.get("/loads/{load_id}/events", response_model=list[LoadEventResponse])

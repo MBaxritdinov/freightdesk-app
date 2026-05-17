@@ -615,4 +615,8 @@ def track_load(load_number: str, db: Session = Depends(get_db)):
         "pu_date": load.pu_date.isoformat() if load.pu_date else None,
         "del_date": load.del_date.isoformat() if load.del_date else None,
         "load_status": (load.load_status or LoadStatus.NEW).value,
+        "distance_miles": load.distance_miles,
+        "calculated_eta": load.calculated_eta.isoformat() if load.calculated_eta else None,
+        "driver_eta": load.driver_eta.isoformat() if load.driver_eta else None,
+        "eta_notes": load.eta_notes,
     }

@@ -57,6 +57,13 @@ class LoadCreate(BaseModel):
     payment_method: Optional[str] = None
     quickpay_deduction: Optional[float] = 0
     notes: Optional[str] = None
+    pu_address: Optional[str] = None
+    del_address: Optional[str] = None
+    pu_time_window: Optional[str] = None
+    del_time_window: Optional[str] = None
+    reference_number: Optional[str] = None
+    weight: Optional[str] = None
+    consignee_name: Optional[str] = None
 
 
 class FlagRequest(BaseModel):
@@ -95,6 +102,17 @@ class LoadResponse(BaseModel):
     approved_by: Optional[int] = None
     approved_by_name: Optional[str] = None
     created_at: Optional[datetime] = None
+    pu_address: Optional[str] = None
+    del_address: Optional[str] = None
+    pu_time_window: Optional[str] = None
+    del_time_window: Optional[str] = None
+    reference_number: Optional[str] = None
+    weight: Optional[str] = None
+    consignee_name: Optional[str] = None
+    distance_miles: Optional[float] = None
+    calculated_eta: Optional[datetime] = None
+    driver_eta: Optional[datetime] = None
+    eta_notes: Optional[str] = None
 
 
 class PaginatedLoads(BaseModel):
@@ -154,6 +172,20 @@ class LoadUpdate(BaseModel):
     notes: Optional[str] = None
     driver_id: Optional[int] = None
     payment_status: Optional[str] = None
+    pu_location: Optional[str] = None
+    del_location: Optional[str] = None
+    pu_address: Optional[str] = None
+    del_address: Optional[str] = None
+    pu_time_window: Optional[str] = None
+    del_time_window: Optional[str] = None
+    reference_number: Optional[str] = None
+    weight: Optional[str] = None
+    consignee_name: Optional[str] = None
+
+
+class DriverEtaUpdate(BaseModel):
+    driver_eta: Optional[datetime] = None
+    eta_notes: Optional[str] = None
 
 
 class BrokerListResponse(BaseModel):

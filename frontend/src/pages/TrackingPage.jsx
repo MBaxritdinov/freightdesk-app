@@ -12,6 +12,11 @@ function fmtDate(iso) {
   return new Date(iso + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
 }
 
+function fmtDatetime(iso) {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
+}
+
 function PipelineBar({ currentStatus }) {
   const currentIdx = PIPELINE_STEPS.indexOf(currentStatus || 'NEW')
   return (
@@ -152,6 +157,38 @@ export default function TrackingPage() {
                 {load.driver_name && <InfoRow label="Driver" value={load.driver_name} />}
               </div>
             </div>
+
+            {/* Distance & ETA */}
+            {(load.distance_miles || load.driver_eta || load.calculated_eta) && (
+              <div className="bg-slate-800 rounded-xl border border-slate-700 p-6">
+                <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-5">Distance & ETA</h3>
+                <div className="space-y-4">
+                  {load.distance_miles && (
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-xs text-slate-500 uppercase tracking-wide">Total Distance</span>
+                      <span className="text-sm text-white">{Math.round(load.distance_miles)} miles</span>
+                    </div>
+                  )}
+                  {(load.driver_eta || load.calculated_eta) && (
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-xs text-slate-500 uppercase tracking-wide">Estimated Arrival</span>
+                      <span className="text-sm text-white">
+                        {fmtDatetime(load.driver_eta || load.calculated_eta)}
+                        <span className="ml-2 text-xs text-slate-500">
+                          ({load.driver_eta ? 'Driver Reported' : 'Calculated'})
+                        </span>
+                      </span>
+                    </div>
+                  )}
+                  {load.eta_notes && (
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-xs text-slate-500 uppercase tracking-wide">ETA Notes</span>
+                      <span className="text-sm text-slate-300">{load.eta_notes}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             <p className="text-center text-xs text-slate-600">
               Powered by FreightDesk · Real-time load visibility

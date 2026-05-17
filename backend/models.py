@@ -4,7 +4,7 @@ from datetime import datetime, date
 from decimal import Decimal
 from sqlalchemy import (
     Integer, String, Boolean, DateTime, Date, Text,
-    Numeric, ForeignKey, Enum, func
+    Numeric, ForeignKey, Enum, Float, func
 )
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from database import Base
@@ -107,6 +107,17 @@ class Load(Base):
     approved_by: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     email_source_id: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    pu_address: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    del_address: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    pu_time_window: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    del_time_window: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    reference_number: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    weight: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    consignee_name: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    distance_miles: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    calculated_eta: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    driver_eta: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    eta_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

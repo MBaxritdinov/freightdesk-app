@@ -1,6 +1,7 @@
 import base64
 import json
 import os
+from typing import Optional
 
 import anthropic
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
@@ -20,7 +21,7 @@ ALLOWED_TYPES = {
     "image/webp": "image/webp",
 }
 
-_EXTRACT_PROMPT = """Extract the following fields from this rate confirmation document and return ONLY valid JSON with no markdown, no explanation, no extra text:
+_EXTRACT_PROMPT = """Extract the following fields from this rate confirmation / load confirmation document and return ONLY valid JSON with no markdown, no explanation, no extra text:
 {
   "load_number": "string or null",
   "broker_name": "string or null",
@@ -29,7 +30,14 @@ _EXTRACT_PROMPT = """Extract the following fields from this rate confirmation do
   "del_location": "City, ST format or null",
   "pu_date": "YYYY-MM-DD or null",
   "del_date": "YYYY-MM-DD or null",
-  "payment_method": "RTS or QUICKPAY or null"
+  "payment_method": "RTS or QUICKPAY or null",
+  "pu_address": "full street address of pickup including street number, city, state, zip or null",
+  "del_address": "full street address of delivery including street number, city, state, zip or null",
+  "pu_time_window": "pickup time window as written on the document, e.g. 'FCFS till 3 PM' or '07:00-15:00' or null",
+  "del_time_window": "delivery time window as written on the document or null",
+  "reference_number": "any reference number, PO number, or order number on the document or null",
+  "weight": "freight weight as written, e.g. '5920 lbs' or '12000 LBS' or null",
+  "consignee_name": "name of the delivery contact, company, or consignee at the destination or null"
 }"""
 
 
@@ -91,14 +99,22 @@ async def parse_document(
         raise HTTPException(status_code=500, detail=f"AI API error: {e}")
 
     broker_id = None
-    raw_broker_name = parsed.get("broker_name")
-    if raw_broker_name:
-        needle = raw_broker_name.lower().strip()
-        for broker in db.query(Broker).all():
+    all_brokers = db.query(Broker).all()
+
+    def _fuzzy_match(name: str) -> Optional[int]:
+        if not name:
+            return None
+        needle = name.lower().strip()
+        for broker in all_brokers:
             hay = broker.name.lower().strip()
             if hay == needle or needle in hay or hay in needle:
-                broker_id = broker.id
-                break
+                return broker.id
+        return None
+
+    broker_id = _fuzzy_match(parsed.get("broker_name"))
+    if broker_id is None:
+        broker_id = _fuzzy_match(parsed.get("consignee_name"))
+
     parsed["broker_id"] = broker_id
 
     return parsed

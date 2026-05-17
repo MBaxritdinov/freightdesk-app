@@ -26,6 +26,13 @@ function fmtTs(iso) {
   return new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
+function fmtDuration(miles) {
+  const hrs = miles / 55
+  const h = Math.floor(hrs)
+  const m = Math.round((hrs - h) * 60)
+  return m > 0 ? `${h}h ${m}min` : `${h}h`
+}
+
 function ApprovalBadge({ status }) {
   const cls = {
     PENDING: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
@@ -239,6 +246,9 @@ export default function LoadDetail() {
   const [bolLoading, setBolLoading] = useState(false)
   const [invoiceLoading, setInvoiceLoading] = useState(false)
   const [trackCopied, setTrackCopied] = useState(false)
+  const [etaEdit, setEtaEdit] = useState(false)
+  const [etaForm, setEtaForm] = useState({ driver_eta: '', eta_notes: '' })
+  const [etaSaving, setEtaSaving] = useState(false)
 
   useEffect(() => {
     const token = getToken()
@@ -355,6 +365,32 @@ export default function LoadDetail() {
     }
   }
 
+  function openEtaEdit() {
+    setEtaForm({
+      driver_eta: load.driver_eta ? new Date(load.driver_eta).toISOString().slice(0, 16) : '',
+      eta_notes: load.eta_notes ?? '',
+    })
+    setEtaEdit(true)
+  }
+
+  async function handleSaveDriverEta(e) {
+    e.preventDefault()
+    setEtaSaving(true)
+    try {
+      const r = await API.patch(`/loads/${id}/driver-eta`, {
+        driver_eta: etaForm.driver_eta || null,
+        eta_notes: etaForm.eta_notes || null,
+      })
+      setLoad(r.data)
+      setEtaEdit(false)
+      fetchEvents()
+    } catch (err) {
+      setError(err.response?.data?.detail || 'ETA update failed')
+    } finally {
+      setEtaSaving(false)
+    }
+  }
+
   function handleCopyTracking() {
     const url = `${window.location.origin}/track/${load.load_number}`
     navigator.clipboard.writeText(url).then(() => {
@@ -442,6 +478,73 @@ export default function LoadDetail() {
           </div>
         )}
 
+        {/* Distance & ETA */}
+        {(load.distance_miles || load.calculated_eta || load.driver_eta) && (
+          <div className="bg-slate-800 rounded-xl border border-slate-700 p-6 mb-4">
+            <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-5">Distance & ETA</h3>
+            <div className="space-y-4">
+              {load.distance_miles != null && (
+                <div className="flex items-start gap-3">
+                  <span className="text-xs text-slate-500 uppercase tracking-wide w-36 shrink-0 mt-0.5">Distance</span>
+                  <span className="text-sm text-white">
+                    {load.distance_miles.toLocaleString()} miles
+                    <span className="text-slate-500 ml-2">· ~{fmtDuration(load.distance_miles)} drive</span>
+                  </span>
+                </div>
+              )}
+              {load.calculated_eta && (
+                <div className="flex items-start gap-3">
+                  <span className="text-xs text-slate-500 uppercase tracking-wide w-36 shrink-0 mt-0.5">Calculated ETA</span>
+                  <span className="text-sm text-slate-300">{fmtTs(load.calculated_eta)}</span>
+                </div>
+              )}
+              <div className="flex items-start gap-3">
+                <span className="text-xs text-slate-500 uppercase tracking-wide w-36 shrink-0 mt-0.5">Driver ETA</span>
+                {etaEdit ? (
+                  <form onSubmit={handleSaveDriverEta} className="flex flex-col gap-2 flex-1">
+                    <input
+                      type="datetime-local"
+                      value={etaForm.driver_eta}
+                      onChange={e => setEtaForm(f => ({ ...f, driver_eta: e.target.value }))}
+                      className="bg-slate-700 border border-slate-600 rounded px-3 py-1.5 text-white text-sm focus:outline-none focus:border-blue-500 transition w-56"
+                    />
+                    <input
+                      type="text"
+                      value={etaForm.eta_notes}
+                      onChange={e => setEtaForm(f => ({ ...f, eta_notes: e.target.value }))}
+                      placeholder="Notes (optional)…"
+                      className="bg-slate-700 border border-slate-600 rounded px-3 py-1.5 text-white text-sm focus:outline-none focus:border-blue-500 transition w-72"
+                    />
+                    <div className="flex gap-2">
+                      <button type="submit" disabled={etaSaving} className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs rounded-lg font-medium transition">
+                        {etaSaving ? 'Saving…' : 'Save'}
+                      </button>
+                      <button type="button" onClick={() => setEtaEdit(false)} className="px-3 py-1.5 text-slate-400 hover:text-white text-xs transition">Cancel</button>
+                    </div>
+                  </form>
+                ) : (
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <span className="text-sm text-white">
+                      {load.driver_eta ? fmtTs(load.driver_eta) : <span className="text-slate-600">Not set</span>}
+                    </span>
+                    {isDispatcher && (
+                      <button onClick={openEtaEdit} className="text-xs text-blue-400 hover:text-blue-300 transition">
+                        {load.driver_eta ? 'Edit' : '+ Set ETA'}
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+              {load.eta_notes && !etaEdit && (
+                <div className="flex items-start gap-3">
+                  <span className="text-xs text-slate-500 uppercase tracking-wide w-36 shrink-0 mt-0.5">ETA Notes</span>
+                  <span className="text-sm text-slate-300">{load.eta_notes}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Main details */}
         <div className="bg-slate-800 rounded-xl border border-slate-700 p-6 mb-4">
           <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-5">Load Details</h3>
@@ -449,11 +552,26 @@ export default function LoadDetail() {
             <Field label="Load Number"><span className="font-mono">{load.load_number}</span></Field>
             <Field label="Broker">{load.broker_name}</Field>
             <Field label="Driver">{load.driver_name ?? <span className="text-slate-500">Unassigned</span>}</Field>
-            <Field label="Pickup Date">{fmtDate(load.pu_date)}</Field>
-            <Field label="Delivery Date">{fmtDate(load.del_date)}</Field>
+            <Field label="Pickup">
+              <div>{fmtDate(load.pu_date)}</div>
+              {load.pu_time_window && <div className="text-xs text-slate-500 mt-0.5">{load.pu_time_window}</div>}
+            </Field>
+            <Field label="Delivery">
+              <div>{fmtDate(load.del_date)}</div>
+              {load.del_time_window && <div className="text-xs text-slate-500 mt-0.5">{load.del_time_window}</div>}
+            </Field>
             {!isDispatcher && <Field label="Payment Method">{load.payment_method ?? <span className="text-slate-500">—</span>}</Field>}
-            <Field label="Pickup Location">{load.pu_location ?? <span className="text-slate-500">—</span>}</Field>
-            <Field label="Delivery Location">{load.del_location ?? <span className="text-slate-500">—</span>}</Field>
+            <Field label="Pickup Location">
+              <div>{load.pu_location ?? <span className="text-slate-500">—</span>}</div>
+              {load.pu_address && <div className="text-xs text-slate-500 mt-0.5">{load.pu_address}</div>}
+            </Field>
+            <Field label="Delivery Location">
+              <div>{load.del_location ?? <span className="text-slate-500">—</span>}</div>
+              {load.del_address && <div className="text-xs text-slate-500 mt-0.5">{load.del_address}</div>}
+            </Field>
+            {load.consignee_name && <Field label="Consignee">{load.consignee_name}</Field>}
+            {load.reference_number && <Field label="Reference #"><span className="font-mono">{load.reference_number}</span></Field>}
+            {load.weight && <Field label="Weight">{load.weight}</Field>}
             {!isDispatcher && <Field label="Payment Status"><PaymentBadge status={load.payment_status} /></Field>}
           </div>
         </div>

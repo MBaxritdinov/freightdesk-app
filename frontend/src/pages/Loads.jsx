@@ -496,7 +496,7 @@ export default function Loads() {
 
   const isHA = user.role === 'HEAD_ACCOUNTANT'
   const isDispatcher = user.role === 'DISPATCHER'
-  const cols = ['Load #', 'Broker', 'Driver', 'Route', 'Dates', 'Gross', 'Net', ...(isDispatcher ? [] : ['Method', 'Payment']), 'BOL / POD', 'Status', 'Actions']
+  const cols = ['Load #', 'Broker', 'Driver', 'Route', 'Dates', 'Gross', 'Net', 'Dist.', ...(isDispatcher ? [] : ['Method', 'Payment']), 'BOL / POD', 'Status', 'Actions']
 
   return (
     <div className="min-h-screen bg-slate-900">
@@ -603,6 +603,9 @@ export default function Loads() {
                       </td>
                       <td className="px-4 py-3 text-white font-mono whitespace-nowrap">{fmt(load.gross_rate)}</td>
                       <td className="px-4 py-3 text-green-400 font-mono whitespace-nowrap">{fmt(load.net_rate)}</td>
+                      <td className="px-4 py-3 text-slate-400 text-xs whitespace-nowrap">
+                        {load.distance_miles ? `${Math.round(load.distance_miles)} mi` : <span className="text-slate-600">—</span>}
+                      </td>
                       {!isDispatcher && <td className="px-4 py-3 text-slate-400 text-xs whitespace-nowrap">{load.payment_method ?? '—'}</td>}
                       {!isDispatcher && <td className="px-4 py-3 whitespace-nowrap"><PaymentBadge status={load.payment_status} /></td>}
                       <td className="px-4 py-3 whitespace-nowrap">
