@@ -68,9 +68,9 @@ function DispatcherDashboard({ stats, navigate }) {
     <>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <StatCard label="Total Active Loads" value={stats.active_loads_count ?? 0} sub="not yet delivered" onClick={() => navigate('/loads')} />
-        <StatCard label="In Route" value={stats.in_route_count ?? 0} sub="currently in transit" accent="text-orange-400" />
-        <StatCard label="Delivered This Week" value={stats.delivered_week_count ?? 0} sub="completed this week" accent="text-green-400" />
-        <StatCard label="Needs Acceptance" value={stats.new_loads_count ?? 0} sub="awaiting dispatcher action" accent="text-yellow-400" onClick={() => navigate('/loads')} />
+        <StatCard label="In Route" value={stats.in_route_count ?? 0} sub="currently in transit" accent="text-orange-400" onClick={() => navigate('/loads?load_status=IN_ROUTE')} />
+        <StatCard label="Delivered This Week" value={stats.delivered_week_count ?? 0} sub="completed this week" accent="text-green-400" onClick={() => navigate('/loads?load_status=DELIVERED')} />
+        <StatCard label="Needs Acceptance" value={stats.new_loads_count ?? 0} sub="awaiting dispatcher action" accent="text-yellow-400" onClick={() => navigate('/loads?load_status=NEW')} />
       </div>
 
       <div className="bg-slate-800 rounded-xl border border-slate-700">

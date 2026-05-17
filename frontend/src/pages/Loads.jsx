@@ -418,6 +418,8 @@ function FlagModal({ onClose, onConfirm }) {
 
 const STATUS_TABS = ['ALL', 'PENDING', 'APPROVED', 'FLAGGED']
 const PAYMENT_TABS = ['ALL', 'PENDING', 'INVOICED', 'RECEIVED']
+const LOAD_STATUS_TABS = ['ALL', 'NEW', 'ACCEPTED', 'DISPATCHED', 'IN_ROUTE', 'DELIVERED']
+const LOAD_STATUS_LABELS = { ALL: 'All Pipeline', NEW: 'New', ACCEPTED: 'Accepted', DISPATCHED: 'Dispatched', IN_ROUTE: 'In Route', DELIVERED: 'Delivered' }
 
 export default function Loads() {
   const [user, setUser] = useState(null)
@@ -428,6 +430,7 @@ export default function Loads() {
   const [searchParams] = useSearchParams()
   const [statusFilter, setStatusFilter] = useState('ALL')
   const [paymentFilter, setPaymentFilter] = useState('ALL')
+  const [loadStatusFilter, setLoadStatusFilter] = useState('ALL')
   const [loadingTable, setLoadingTable] = useState(false)
   const [showAdd, setShowAdd] = useState(false)
   const [showUpload, setShowUpload] = useState(false)
@@ -442,6 +445,10 @@ export default function Loads() {
     if (ap && ['PENDING', 'APPROVED', 'FLAGGED'].includes(ap)) {
       setStatusFilter(ap)
       setPaymentFilter('ALL')
+    }
+    const ls = searchParams.get('load_status')
+    if (ls && ['NEW', 'ACCEPTED', 'DISPATCHED', 'IN_ROUTE', 'DELIVERED'].includes(ls)) {
+      setLoadStatusFilter(ls)
     }
   }, [])
 
@@ -463,7 +470,7 @@ export default function Loads() {
   useEffect(() => {
     if (!user) return
     fetchLoads()
-  }, [page, statusFilter, paymentFilter, user])
+  }, [page, statusFilter, paymentFilter, loadStatusFilter, user])
 
   async function fetchLoads() {
     setLoadingTable(true)
@@ -471,6 +478,7 @@ export default function Loads() {
       const params = { page, limit: 20 }
       if (statusFilter !== 'ALL') params.status = statusFilter
       if (paymentFilter !== 'ALL') params.payment_status = paymentFilter
+      if (loadStatusFilter !== 'ALL') params.load_status = loadStatusFilter
       const res = await API.get('/loads', { params })
       setLoads(res.data.items)
       setTotalPages(res.data.pages)
@@ -500,6 +508,7 @@ export default function Loads() {
   function handleLogout() { clearToken(); navigate('/login') }
   function changeStatus(s) { setStatusFilter(s); setPage(1) }
   function changePayment(s) { setPaymentFilter(s); setPage(1) }
+  function changeLoadStatus(s) { setLoadStatusFilter(s); setPage(1) }
 
   function handleParsed(data) {
     setShowUpload(false)
@@ -550,6 +559,16 @@ export default function Loads() {
               <button key={s} onClick={() => changeStatus(s)}
                 className={`px-3 py-1.5 text-xs font-medium rounded-md transition ${statusFilter === s ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}>
                 {s === 'ALL' ? 'All' : s.charAt(0) + s.slice(1).toLowerCase()}
+              </button>
+            ))}
+          </div>
+
+          {/* Load pipeline status */}
+          <div className="flex items-center gap-1 bg-slate-800 rounded-lg p-1 border border-slate-700">
+            {LOAD_STATUS_TABS.map(s => (
+              <button key={s} onClick={() => changeLoadStatus(s)}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition ${loadStatusFilter === s ? 'bg-slate-600 text-white' : 'text-slate-400 hover:text-white'}`}>
+                {LOAD_STATUS_LABELS[s]}
               </button>
             ))}
           </div>
