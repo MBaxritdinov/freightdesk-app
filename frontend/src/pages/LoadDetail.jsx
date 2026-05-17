@@ -143,6 +143,28 @@ function StatusActionButton({ load, user, onUpdated, onError }) {
 
 // ── Timeline ──────────────────────────────────────────────────────────────────
 
+const EVENT_DOT = {
+  CREATED: 'bg-blue-500',
+  STATUS_CHANGED: 'bg-purple-500',
+  APPROVED: 'bg-green-500',
+  FLAGGED: 'bg-red-500',
+  BOL_GENERATED: 'bg-slate-500',
+  INVOICE_GENERATED: 'bg-slate-500',
+  BOL_SIGNED: 'bg-green-500',
+  POD_SUBMITTED: 'bg-green-500',
+}
+const EVENT_LABEL = {
+  CREATED: 'Load Created',
+  STATUS_CHANGED: 'Status Changed',
+  APPROVED: 'Approved',
+  FLAGGED: 'Flagged',
+  BOL_GENERATED: 'BOL Generated',
+  INVOICE_GENERATED: 'Invoice Generated',
+  BOL_SIGNED: 'BOL Signed',
+  POD_SUBMITTED: 'POD Submitted',
+  NOTE_ADDED: 'Note Added',
+}
+
 function Timeline({ events }) {
   if (!events || events.length === 0) {
     return (
@@ -151,12 +173,6 @@ function Timeline({ events }) {
         <p className="text-sm text-slate-500">No events yet.</p>
       </div>
     )
-  }
-
-  const dotColor = (type) => {
-    if (type === 'DELIVERED') return 'bg-green-500'
-    if (type === 'FLAGGED' || type === 'CREATED') return 'bg-blue-500'
-    return 'bg-blue-400'
   }
 
   return (
@@ -168,8 +184,13 @@ function Timeline({ events }) {
             {i < events.length - 1 && (
               <div className="absolute left-[6px] top-3.5 bottom-0 w-px bg-slate-700" />
             )}
-            <div className={`w-3.5 h-3.5 rounded-full shrink-0 mt-0.5 ring-2 ring-slate-800 ${dotColor(ev.event_type)}`} />
+            <div className={`w-3.5 h-3.5 rounded-full shrink-0 mt-1 ring-2 ring-slate-800 ${EVENT_DOT[ev.event_type] ?? 'bg-slate-500'}`} />
             <div className="pb-5 min-w-0">
+              {EVENT_LABEL[ev.event_type] && (
+                <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-0.5">
+                  {EVENT_LABEL[ev.event_type]}
+                </p>
+              )}
               <p className="text-sm text-white">{ev.description}</p>
               <p className="text-xs text-slate-500 mt-0.5">
                 {ev.created_by_name ? `${ev.created_by_name} · ` : ''}{fmtTs(ev.created_at)}
@@ -215,6 +236,9 @@ export default function LoadDetail() {
   const [actionLoading, setActionLoading] = useState(false)
   const [showFlag, setShowFlag] = useState(false)
   const [error, setError] = useState('')
+  const [bolLoading, setBolLoading] = useState(false)
+  const [invoiceLoading, setInvoiceLoading] = useState(false)
+  const [trackCopied, setTrackCopied] = useState(false)
 
   useEffect(() => {
     const token = getToken()
@@ -295,6 +319,50 @@ export default function LoadDetail() {
     }
   }
 
+  async function handleGenerateBOL() {
+    setBolLoading(true)
+    try {
+      const r = await API.get(`/loads/${id}/bol`, { responseType: 'blob' })
+      const url = URL.createObjectURL(r.data)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `BOL-${load.load_number}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+      fetchEvents()
+    } catch {
+      setError('Failed to generate BOL')
+    } finally {
+      setBolLoading(false)
+    }
+  }
+
+  async function handleGenerateInvoice() {
+    setInvoiceLoading(true)
+    try {
+      const r = await API.get(`/loads/${id}/invoice`, { responseType: 'blob' })
+      const url = URL.createObjectURL(r.data)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `INV-${load.load_number}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+      fetchEvents()
+    } catch {
+      setError('Failed to generate invoice')
+    } finally {
+      setInvoiceLoading(false)
+    }
+  }
+
+  function handleCopyTracking() {
+    const url = `${window.location.origin}/track/${load.load_number}`
+    navigator.clipboard.writeText(url).then(() => {
+      setTrackCopied(true)
+      setTimeout(() => setTrackCopied(false), 2000)
+    })
+  }
+
   function handleLogout() { clearToken(); navigate('/login') }
 
   if (!user || !load) {
@@ -302,6 +370,7 @@ export default function LoadDetail() {
   }
 
   const isHA = user.role === 'HEAD_ACCOUNTANT'
+  const isDispatcher = user.role === 'DISPATCHER'
 
   return (
     <div className="min-h-screen bg-slate-900">
@@ -309,13 +378,40 @@ export default function LoadDetail() {
 
       <main className="max-w-4xl mx-auto px-6 py-8">
         {/* Back + header */}
-        <div className="flex items-center gap-3 mb-4">
+        <div className="flex items-center gap-3 mb-4 flex-wrap">
           <button onClick={() => navigate('/loads')} className="text-sm text-slate-400 hover:text-white transition flex items-center gap-1">
             ← Loads
           </button>
           <span className="text-slate-600">/</span>
           <h2 className="text-lg font-bold text-white font-mono">{load.load_number}</h2>
           <ApprovalBadge status={load.approval_status} />
+          <div className="flex-1" />
+          <div className="flex items-center gap-2 flex-wrap">
+            {isDispatcher && (
+              <button
+                onClick={handleGenerateBOL}
+                disabled={bolLoading}
+                className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 border border-slate-600 text-white text-xs rounded-lg font-medium transition disabled:opacity-50"
+              >
+                {bolLoading ? 'Generating…' : 'Download BOL'}
+              </button>
+            )}
+            {isHA && (
+              <button
+                onClick={handleGenerateInvoice}
+                disabled={invoiceLoading}
+                className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 border border-slate-600 text-white text-xs rounded-lg font-medium transition disabled:opacity-50"
+              >
+                {invoiceLoading ? 'Generating…' : 'Generate Invoice'}
+              </button>
+            )}
+            <button
+              onClick={handleCopyTracking}
+              className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 border border-slate-600 text-xs rounded-lg font-medium transition text-slate-300 hover:text-white"
+            >
+              {trackCopied ? '✓ Copied!' : 'Copy Tracking Link'}
+            </button>
+          </div>
         </div>
 
         {error && (
@@ -355,10 +451,10 @@ export default function LoadDetail() {
             <Field label="Driver">{load.driver_name ?? <span className="text-slate-500">Unassigned</span>}</Field>
             <Field label="Pickup Date">{fmtDate(load.pu_date)}</Field>
             <Field label="Delivery Date">{fmtDate(load.del_date)}</Field>
-            <Field label="Payment Method">{load.payment_method ?? <span className="text-slate-500">—</span>}</Field>
+            {!isDispatcher && <Field label="Payment Method">{load.payment_method ?? <span className="text-slate-500">—</span>}</Field>}
             <Field label="Pickup Location">{load.pu_location ?? <span className="text-slate-500">—</span>}</Field>
             <Field label="Delivery Location">{load.del_location ?? <span className="text-slate-500">—</span>}</Field>
-            <Field label="Payment Status"><PaymentBadge status={load.payment_status} /></Field>
+            {!isDispatcher && <Field label="Payment Status"><PaymentBadge status={load.payment_status} /></Field>}
           </div>
         </div>
 
@@ -370,8 +466,8 @@ export default function LoadDetail() {
             <Field label="Cut Rate"><span className="font-mono text-red-400">{fmt(load.cut_rate)}</span></Field>
             <Field label="Added Rate"><span className="font-mono text-green-400">{fmt(load.added_rate)}</span></Field>
             <Field label="Final Rate"><span className="font-mono">{fmt(load.final_rate)}</span></Field>
-            <Field label="Quickpay Deduction"><span className="font-mono text-red-400">{fmt(load.quickpay_deduction)}</span></Field>
-            <Field label="Net Rate"><span className="text-green-400 font-mono font-semibold text-base">{fmt(load.net_rate)}</span></Field>
+            {!isDispatcher && <Field label="Quickpay Deduction"><span className="font-mono text-red-400">{fmt(load.quickpay_deduction)}</span></Field>}
+            {!isDispatcher && <Field label="Net Rate"><span className="text-green-400 font-mono font-semibold text-base">{fmt(load.net_rate)}</span></Field>}
           </div>
         </div>
 

@@ -66,6 +66,16 @@ def get_stats(
     loads_by_status_pipeline = [{"status": k, "count": v} for k, v in pipeline_counts.items()]
 
     # ── Dispatcher stats ───────────────────────────────────────────────────────
+    active_loads_count = sum(
+        1 for l in week_loads
+        if (l.load_status or LoadStatus.NEW) != LoadStatus.DELIVERED
+    )
+    delivered_week_count = sum(
+        1 for l in week_loads
+        if (l.load_status or LoadStatus.NEW) == LoadStatus.DELIVERED
+    )
+    new_loads_count = pipeline_counts.get(LoadStatus.NEW.value, 0)
+
     my_active_loads = db.query(Load).filter(
         Load.assigned_by == current_user.id,
         Load.driver_id.isnot(None),
@@ -149,8 +159,11 @@ def get_stats(
         "loads_by_status_pipeline": loads_by_status_pipeline,
         "recent_loads": recent_loads,
         # dispatcher-specific
-        "my_active_loads": my_active_loads,
+        "active_loads_count": active_loads_count,
         "in_route_count": in_route_count,
+        "delivered_week_count": delivered_week_count,
+        "new_loads_count": new_loads_count,
+        "my_active_loads": my_active_loads,
         "delivered_today_count": delivered_today_count,
         "pending_acceptance_count": pending_acceptance_count,
         "pipeline_loads": pipeline_loads,

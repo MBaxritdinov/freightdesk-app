@@ -16,6 +16,7 @@ API.interceptors.request.use(config => {
 })
 
 const STATUS_COLORS = { PENDING: '#eab308', APPROVED: '#22c55e', FLAGGED: '#ef4444' }
+const PIPELINE_LABELS = { NEW: 'New', ACCEPTED: 'Accepted', DISPATCHED: 'Dispatched', IN_ROUTE: 'In Route', DELIVERED: 'Delivered' }
 
 
 function fmt(v) {
@@ -27,9 +28,12 @@ function fmtDate(iso) {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
-function StatCard({ label, value, sub, accent }) {
+function StatCard({ label, value, sub, accent, onClick }) {
   return (
-    <div className="bg-slate-800 rounded-xl border border-slate-700 p-5">
+    <div
+      onClick={onClick}
+      className={`bg-slate-800 rounded-xl border border-slate-700 p-5 transition ${onClick ? 'cursor-pointer hover:bg-slate-700' : ''}`}
+    >
       <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">{label}</p>
       <p className={`text-2xl font-bold ${accent || 'text-white'}`}>{value}</p>
       {sub && <p className="text-xs text-slate-500 mt-1">{sub}</p>}
@@ -57,16 +61,69 @@ function PipelineBadge({ status }) {
   return <span className={`px-2 py-0.5 rounded text-xs font-medium border ${cls[status] ?? ''}`}>{PIPELINE_LABELS[status] ?? status}</span>
 }
 
+// ── DISPATCHER Dashboard ──────────────────────────────────────────────────────
+
+function DispatcherDashboard({ stats, navigate }) {
+  return (
+    <>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <StatCard label="Total Active Loads" value={stats.active_loads_count ?? 0} sub="not yet delivered" onClick={() => navigate('/loads')} />
+        <StatCard label="In Route" value={stats.in_route_count ?? 0} sub="currently in transit" accent="text-orange-400" />
+        <StatCard label="Delivered This Week" value={stats.delivered_week_count ?? 0} sub="completed this week" accent="text-green-400" />
+        <StatCard label="Needs Acceptance" value={stats.new_loads_count ?? 0} sub="awaiting dispatcher action" accent="text-yellow-400" onClick={() => navigate('/loads')} />
+      </div>
+
+      <div className="bg-slate-800 rounded-xl border border-slate-700">
+        <div className="px-5 py-4 border-b border-slate-700">
+          <h3 className="text-sm font-semibold text-white">Recent Loads</h3>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-700">
+                {['Load #', 'Broker', 'Driver', 'Route', 'Status', 'Created'].map(h => (
+                  <th key={h} className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wide whitespace-nowrap">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {stats.recent_loads.length === 0 ? (
+                <tr><td colSpan={6} className="text-center py-10 text-slate-500">No loads yet</td></tr>
+              ) : (
+                stats.recent_loads.map(l => (
+                  <tr key={l.id} onClick={() => navigate('/loads/' + l.id)}
+                    className="border-b border-slate-700/50 hover:bg-slate-700/40 cursor-pointer transition">
+                    <td className="px-4 py-3 font-mono text-white whitespace-nowrap">{l.load_number}</td>
+                    <td className="px-4 py-3 text-slate-300 whitespace-nowrap">{l.broker_name}</td>
+                    <td className="px-4 py-3 text-slate-300 whitespace-nowrap">{l.driver_name ?? <span className="text-slate-600">—</span>}</td>
+                    <td className="px-4 py-3 text-slate-400 text-xs whitespace-nowrap">
+                      {l.pu_location && l.del_location
+                        ? <>{l.pu_location} <span className="text-slate-600 mx-1">→</span> {l.del_location}</>
+                        : <span className="text-slate-600">—</span>}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap"><PipelineBadge status={l.load_status} /></td>
+                    <td className="px-4 py-3 text-slate-400 text-xs whitespace-nowrap">{fmtDate(l.created_at)}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </>
+  )
+}
+
 // ── HEAD_ACCOUNTANT Dashboard ─────────────────────────────────────────────────
 
 function HADashboard({ stats, navigate }) {
   return (
     <>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <StatCard label="Loads This Week" value={stats.total_loads_week} sub="created this week" />
+        <StatCard label="Loads This Week" value={stats.total_loads_week} sub="created this week" onClick={() => navigate('/loads')} />
         <StatCard label="Gross Revenue" value={fmt(stats.gross_revenue_week)} sub="this week" />
         <StatCard label="Net Revenue" value={fmt(stats.net_revenue_week)} sub="after deductions" />
-        <StatCard label="Pending Approval" value={stats.pending_count} sub={stats.pending_count === 1 ? 'load needs review' : 'loads need review'} />
+        <StatCard label="Pending Approval" value={stats.pending_count} sub={stats.pending_count === 1 ? 'load needs review' : 'loads need review'} onClick={() => navigate('/loads?approval_status=PENDING')} />
       </div>
 
       {stats.total_loads_week === 0 && (
@@ -203,7 +260,10 @@ export default function Dashboard() {
           </p>
         </div>
 
-        <HADashboard stats={stats} navigate={navigate} />
+        {user.role === 'HEAD_ACCOUNTANT'
+          ? <HADashboard stats={stats} navigate={navigate} />
+          : <DispatcherDashboard stats={stats} navigate={navigate} />
+        }
       </main>
     </div>
   )

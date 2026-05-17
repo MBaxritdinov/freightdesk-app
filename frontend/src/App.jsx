@@ -8,6 +8,7 @@ import Drivers from './pages/Drivers'
 import Reports from './pages/Reports'
 import Settings from './pages/Settings'
 import Users from './pages/Users'
+import TrackingPage from './pages/TrackingPage'
 import { getToken } from './auth'
 
 function ProtectedRoute({ children }) {
@@ -85,6 +86,7 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+        <Route path="/track/:loadNumber" element={<TrackingPage />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </BrowserRouter>

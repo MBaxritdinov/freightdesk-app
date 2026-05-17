@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import axios from 'axios'
 import { getToken, clearToken } from '../auth'
 import Navbar from '../components/Navbar'
@@ -145,7 +145,7 @@ function UploadRateConModal({ onClose, onParsed }) {
 
 // ── Add Load Modal ────────────────────────────────────────────────────────────
 
-function AddLoadModal({ brokers, drivers, onClose, onCreated, prefill }) {
+function AddLoadModal({ brokers, drivers, onClose, onCreated, onBrokerAdded, prefill, isDispatcher }) {
   const [form, setForm] = useState({
     load_number: prefill?.load_number ?? '',
     broker_id: prefill?.broker_id != null ? String(prefill.broker_id) : '',
@@ -162,9 +162,49 @@ function AddLoadModal({ brokers, drivers, onClose, onCreated, prefill }) {
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [addingBroker, setAddingBroker] = useState(false)
+  const [brokerAdded, setBrokerAdded] = useState(false)
+  const [rateHistory, setRateHistory] = useState([])
+  const [rateHistoryLoading, setRateHistoryLoading] = useState(false)
   const navigate = useNavigate()
 
-  const brokerUnmatched = prefill != null && prefill.broker_id == null
+  useEffect(() => {
+    if (!isDispatcher) return
+    const pu = form.pu_location?.trim() ?? ''
+    const del = form.del_location?.trim() ?? ''
+    const brokerId = form.broker_id
+    if (pu.length < 2 || del.length < 2 || !brokerId) { setRateHistory([]); return }
+    const timer = setTimeout(async () => {
+      setRateHistoryLoading(true)
+      try {
+        const res = await API.get('/loads/rate-history', {
+          params: { pu_location: pu, del_location: del, broker_id: parseInt(brokerId) },
+        })
+        setRateHistory(res.data)
+      } catch {
+        setRateHistory([])
+      } finally {
+        setRateHistoryLoading(false)
+      }
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [form.pu_location, form.del_location, form.broker_id, isDispatcher])
+
+  const brokerUnmatched = prefill != null && prefill.broker_id == null && !brokerAdded
+
+  async function handleAddBroker() {
+    setAddingBroker(true)
+    try {
+      const res = await API.post('/brokers', { name: prefill.broker_name })
+      onBrokerAdded(res.data)
+      setForm(f => ({ ...f, broker_id: String(res.data.id) }))
+      setBrokerAdded(true)
+    } catch {
+      // fall through — user can still select manually
+    } finally {
+      setAddingBroker(false)
+    }
+  }
 
   const gross = parseFloat(form.gross_rate) || 0
   const cut = parseFloat(form.cut_rate) || 0
@@ -230,7 +270,20 @@ function AddLoadModal({ brokers, drivers, onClose, onCreated, prefill }) {
                 {brokers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
               </select>
               {brokerUnmatched && (
-                <p className="text-xs text-amber-400 mt-1">Broker not recognized — please select manually</p>
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                  <p className="text-xs text-amber-400">Broker not recognized — please select manually</p>
+                  <button
+                    type="button"
+                    onClick={handleAddBroker}
+                    disabled={addingBroker}
+                    className="text-xs text-blue-400 hover:text-blue-300 disabled:opacity-50 transition"
+                  >
+                    {addingBroker ? 'Adding…' : 'Add as new broker'}
+                  </button>
+                </div>
+              )}
+              {brokerAdded && (
+                <p className="text-xs text-green-400 mt-1">Broker added!</p>
               )}
             </div>
             <div>
@@ -284,6 +337,26 @@ function AddLoadModal({ brokers, drivers, onClose, onCreated, prefill }) {
             <div><label className={lbl}>Delivery Location</label><input name="del_location" value={form.del_location} onChange={set} className={inp} placeholder="City, ST" /></div>
           </div>
 
+          {isDispatcher && (rateHistoryLoading || rateHistory.length > 0) && (
+            <div className="p-3 bg-slate-700/40 rounded-lg border border-slate-600">
+              <p className="text-xs text-slate-400 uppercase tracking-wide mb-2">
+                Rate History — Similar Routes
+                {rateHistoryLoading && <span className="ml-2 text-slate-500">Loading…</span>}
+              </p>
+              {!rateHistoryLoading && rateHistory.length > 0 && (
+                <div className="space-y-1.5">
+                  {rateHistory.map((r, i) => (
+                    <div key={i} className="flex items-center justify-between text-xs gap-4">
+                      <span className="font-mono text-slate-400 shrink-0">{r.load_number}</span>
+                      <span className="text-slate-600 truncate">{r.del_date ? new Date(r.del_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}</span>
+                      <span className="font-mono text-green-400 font-semibold shrink-0">${Number(r.gross_rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           <div>
             <label className={lbl}>Notes</label>
             <textarea name="notes" value={form.notes} onChange={set} rows={3} className={inp} placeholder="Optional notes…" />
@@ -335,6 +408,7 @@ export default function Loads() {
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [total, setTotal] = useState(0)
+  const [searchParams] = useSearchParams()
   const [statusFilter, setStatusFilter] = useState('ALL')
   const [paymentFilter, setPaymentFilter] = useState('ALL')
   const [loadingTable, setLoadingTable] = useState(false)
@@ -345,6 +419,14 @@ export default function Loads() {
   const [brokers, setBrokers] = useState([])
   const [drivers, setDrivers] = useState([])
   const navigate = useNavigate()
+
+  useEffect(() => {
+    const ap = searchParams.get('approval_status')
+    if (ap && ['PENDING', 'APPROVED', 'FLAGGED'].includes(ap)) {
+      setStatusFilter(ap)
+      setPaymentFilter('ALL')
+    }
+  }, [])
 
   useEffect(() => {
     const token = getToken()
@@ -413,6 +495,8 @@ export default function Loads() {
   }
 
   const isHA = user.role === 'HEAD_ACCOUNTANT'
+  const isDispatcher = user.role === 'DISPATCHER'
+  const cols = ['Load #', 'Broker', 'Driver', 'Route', 'Dates', 'Gross', 'Net', ...(isDispatcher ? [] : ['Method', 'Payment']), 'BOL / POD', 'Status', 'Actions']
 
   return (
     <div className="min-h-screen bg-slate-900">
@@ -453,15 +537,17 @@ export default function Loads() {
             ))}
           </div>
 
-          {/* Payment status */}
-          <div className="flex items-center gap-1 bg-slate-800 rounded-lg p-1 border border-slate-700">
-            {PAYMENT_TABS.map(s => (
-              <button key={s} onClick={() => changePayment(s)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition ${paymentFilter === s ? 'bg-slate-600 text-white' : 'text-slate-400 hover:text-white'}`}>
-                {s === 'ALL' ? 'All Payments' : s.charAt(0) + s.slice(1).toLowerCase()}
-              </button>
-            ))}
-          </div>
+          {/* Payment status — accountant only */}
+          {!isDispatcher && (
+            <div className="flex items-center gap-1 bg-slate-800 rounded-lg p-1 border border-slate-700">
+              {PAYMENT_TABS.map(s => (
+                <button key={s} onClick={() => changePayment(s)}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition ${paymentFilter === s ? 'bg-slate-600 text-white' : 'text-slate-400 hover:text-white'}`}>
+                  {s === 'ALL' ? 'All Payments' : s.charAt(0) + s.slice(1).toLowerCase()}
+                </button>
+              ))}
+            </div>
+          )}
 
           {total > 0 && <span className="text-sm text-slate-500 ml-1">{total} load{total !== 1 ? 's' : ''}</span>}
         </div>
@@ -472,17 +558,17 @@ export default function Loads() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-700">
-                  {['Load #', 'Broker', 'Driver', 'Route', 'Dates', 'Gross', 'Net', 'Method', 'Payment', 'BOL / POD', 'Status', 'Actions'].map(col => (
+                  {cols.map(col => (
                     <th key={col} className="text-left px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wide whitespace-nowrap">{col}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {loadingTable ? (
-                  <tr><td colSpan={12} className="text-center py-14 text-slate-500">Loading…</td></tr>
+                  <tr><td colSpan={cols.length} className="text-center py-14 text-slate-500">Loading…</td></tr>
                 ) : loads.length === 0 ? (
                   <tr>
-                    <td colSpan={12}>
+                    <td colSpan={cols.length}>
                       <div className="flex flex-col items-center justify-center py-16 gap-4">
                         <svg className="w-14 h-14 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -517,8 +603,8 @@ export default function Loads() {
                       </td>
                       <td className="px-4 py-3 text-white font-mono whitespace-nowrap">{fmt(load.gross_rate)}</td>
                       <td className="px-4 py-3 text-green-400 font-mono whitespace-nowrap">{fmt(load.net_rate)}</td>
-                      <td className="px-4 py-3 text-slate-400 text-xs whitespace-nowrap">{load.payment_method ?? '—'}</td>
-                      <td className="px-4 py-3 whitespace-nowrap"><PaymentBadge status={load.payment_status} /></td>
+                      {!isDispatcher && <td className="px-4 py-3 text-slate-400 text-xs whitespace-nowrap">{load.payment_method ?? '—'}</td>}
+                      {!isDispatcher && <td className="px-4 py-3 whitespace-nowrap"><PaymentBadge status={load.payment_status} /></td>}
                       <td className="px-4 py-3 whitespace-nowrap">
                         <span className={`inline-block w-2.5 h-2.5 rounded-full mr-1.5 ${load.bol_signed ? 'bg-green-500' : 'bg-slate-600'}`} title={`BOL: ${load.bol_signed ? 'Signed' : 'Not signed'}`} />
                         <span className={`inline-block w-2.5 h-2.5 rounded-full ${load.pod_submitted ? 'bg-green-500' : 'bg-slate-600'}`} title={`POD: ${load.pod_submitted ? 'Submitted' : 'Not submitted'}`} />
@@ -556,8 +642,10 @@ export default function Loads() {
           brokers={brokers}
           drivers={drivers}
           prefill={prefillData}
+          isDispatcher={isDispatcher}
           onClose={() => { setShowAdd(false); setPrefillData(null) }}
           onCreated={() => { setShowAdd(false); setPrefillData(null); fetchLoads() }}
+          onBrokerAdded={broker => setBrokers(prev => [...prev, broker])}
         />
       )}
       {flagTarget && (

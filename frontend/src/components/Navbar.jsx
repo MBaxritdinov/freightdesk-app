@@ -13,10 +13,10 @@ API.interceptors.request.use(config => {
 const LINKS = [
   { to: '/dashboard', label: 'Dashboard' },
   { to: '/loads', label: 'Loads' },
-  { to: '/drivers', label: 'Drivers' },
-  { to: '/brokers', label: 'Brokers' },
+  { to: '/drivers', label: 'Drivers', dispatcherOnly: true },
+  { to: '/brokers', label: 'Brokers', dispatcherOnly: true },
   { to: '/users', label: 'Users', haOnly: true },
-  { to: '/reports', label: 'Reports' },
+  { to: '/reports', label: 'Reports', haOnly: true },
   { to: '/settings', label: 'Settings' },
 ]
 
@@ -215,7 +215,11 @@ export default function Navbar({ active, user, onLogout }) {
   }
 
   const unread = notifs.filter(n => !n.is_read).length
-  const visibleLinks = LINKS.filter(l => !l.haOnly || user?.role === 'HEAD_ACCOUNTANT')
+  const visibleLinks = LINKS.filter(l => {
+    if (l.haOnly) return user?.role === 'HEAD_ACCOUNTANT'
+    if (l.dispatcherOnly) return user?.role === 'DISPATCHER'
+    return true
+  })
 
   return (
     <nav className="bg-slate-800 border-b border-slate-700">
