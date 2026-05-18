@@ -3,6 +3,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import axios from 'axios'
 import { getToken, clearToken } from '../auth'
 import Navbar from '../components/Navbar'
+import { TableRowSkeleton } from '../components/Skeletons'
+import Tooltip from '../components/Tooltip'
 
 const API = axios.create({ baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000' })
 
@@ -29,20 +31,20 @@ function Spinner() {
 
 function ApprovalBadge({ status }) {
   const cls = {
-    PENDING: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
-    APPROVED: 'bg-green-500/20 text-green-400 border-green-500/30',
-    FLAGGED: 'bg-red-500/20 text-red-400 border-red-500/30',
+    PENDING: 'bg-amber-500/15 text-amber-400 ring-1 ring-amber-500/30',
+    APPROVED: 'bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/30',
+    FLAGGED: 'bg-red-500/15 text-red-400 ring-1 ring-red-500/30',
   }
-  return <span className={`px-2 py-0.5 rounded text-xs font-medium border ${cls[status] ?? ''}`}>{status}</span>
+  return <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${cls[status] ?? ''}`}>{status}</span>
 }
 
 function PaymentBadge({ status }) {
   const cls = {
-    PENDING: 'bg-slate-600/40 text-slate-300 border-slate-500/30',
-    INVOICED: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-    RECEIVED: 'bg-green-500/20 text-green-400 border-green-500/30',
+    PENDING: 'bg-slate-700/60 text-slate-400 ring-1 ring-slate-600/40',
+    INVOICED: 'bg-blue-500/15 text-blue-400 ring-1 ring-blue-500/30',
+    RECEIVED: 'bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/30',
   }
-  return <span className={`px-2 py-0.5 rounded text-xs font-medium border ${cls[status] ?? ''}`}>{status}</span>
+  return <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${cls[status] ?? ''}`}>{status}</span>
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -95,18 +97,18 @@ function UploadRateConModal({ onClose, onParsed }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-slate-800 rounded-xl border border-slate-700 w-full max-w-md">
-        <div className="flex items-center justify-between p-6 border-b border-slate-700">
-          <h2 className="text-lg font-semibold text-white">Upload Load Confirmation</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-white text-2xl leading-none transition">&times;</button>
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-slate-900 ring-1 ring-white/10 rounded-xl shadow-2xl w-full max-w-md">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06]">
+          <h2 className="text-base font-semibold text-white">Upload Load Confirmation</h2>
+          <button onClick={onClose} className="text-slate-500 hover:text-white text-xl leading-none transition-colors">&times;</button>
         </div>
 
         <div className="p-6">
           {parsing ? (
             <div className="flex flex-col items-center gap-4 py-10">
               <Spinner />
-              <p className="text-sm text-slate-400">Reading document…</p>
+              <p className="text-sm text-slate-500">Reading document…</p>
             </div>
           ) : (
             <>
@@ -115,11 +117,11 @@ function UploadRateConModal({ onClose, onParsed }) {
                 onDragLeave={() => setDragging(false)}
                 onDrop={onDrop}
                 onClick={() => inputRef.current?.click()}
-                className={`border-2 border-dashed rounded-xl p-10 flex flex-col items-center gap-3 cursor-pointer transition ${
-                  dragging ? 'border-blue-500 bg-blue-500/5' : 'border-slate-600 hover:border-slate-500 bg-slate-700/20'
+                className={`border-2 border-dashed rounded-xl p-10 flex flex-col items-center gap-3 cursor-pointer transition-colors ${
+                  dragging ? 'border-blue-500/60 bg-blue-500/5' : 'border-white/10 hover:border-white/20 bg-white/[0.02]'
                 }`}
               >
-                <svg className="w-10 h-10 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+                <svg className="w-10 h-10 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                 </svg>
                 <div className="text-center">
@@ -260,17 +262,17 @@ function AddLoadModal({ brokers, drivers, onClose, onCreated, onBrokerAdded, pre
     }
   }
 
-  const inp = 'w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500 transition'
-  const lbl = 'block text-xs text-slate-400 mb-1'
+  const inp = 'w-full bg-slate-800/60 ring-1 ring-white/10 rounded-lg px-3 py-2 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition'
+  const lbl = 'block text-xs font-medium text-slate-500 uppercase tracking-widest mb-1.5'
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-slate-800 rounded-xl border border-slate-700 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-6 border-b border-slate-700">
-          <h2 className="text-lg font-semibold text-white">
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-slate-900 ring-1 ring-white/10 rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06]">
+          <h2 className="text-base font-semibold text-white">
             {prefill ? 'Add Load — Pre-filled from Load Confirmation' : 'Add Load'}
           </h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-white text-2xl leading-none transition">&times;</button>
+          <button onClick={onClose} className="text-slate-500 hover:text-white text-xl leading-none transition-colors">&times;</button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
@@ -293,15 +295,13 @@ function AddLoadModal({ brokers, drivers, onClose, onCreated, onBrokerAdded, pre
                     type="button"
                     onClick={handleAddBroker}
                     disabled={addingBroker}
-                    className="text-xs text-blue-400 hover:text-blue-300 disabled:opacity-50 transition"
+                    className="text-xs text-blue-400 hover:text-blue-300 disabled:opacity-50 transition-colors"
                   >
                     {addingBroker ? 'Adding…' : 'Add as new broker'}
                   </button>
                 </div>
               )}
-              {brokerAdded && (
-                <p className="text-xs text-green-400 mt-1">Broker added!</p>
-              )}
+              {brokerAdded && <p className="text-xs text-emerald-400 mt-1">Broker added!</p>}
             </div>
             <div>
               <label className={lbl}>Driver</label>
@@ -339,11 +339,11 @@ function AddLoadModal({ brokers, drivers, onClose, onCreated, onBrokerAdded, pre
             </div>
             <div>
               <label className={lbl}>Final Rate (auto)</label>
-              <div className="px-3 py-2 bg-slate-700/50 rounded border border-slate-600 text-green-400 text-sm font-mono">{fmt(finalRate)}</div>
+              <div className="px-3 py-2 bg-slate-800/40 ring-1 ring-white/5 rounded-lg text-emerald-400 text-sm font-mono">{fmt(finalRate)}</div>
             </div>
             <div>
               <label className={lbl}>Net Rate (auto)</label>
-              <div className="px-3 py-2 bg-slate-700/50 rounded border border-slate-600 text-green-400 text-sm font-mono">{fmt(netRate)}</div>
+              <div className="px-3 py-2 bg-slate-800/40 ring-1 ring-white/5 rounded-lg text-emerald-400 text-sm font-mono">{fmt(netRate)}</div>
             </div>
           </div>
 
@@ -355,10 +355,10 @@ function AddLoadModal({ brokers, drivers, onClose, onCreated, onBrokerAdded, pre
           </div>
 
           {isDispatcher && (rateHistoryLoading || rateHistory.length > 0) && (
-            <div className="p-3 bg-slate-700/40 rounded-lg border border-slate-600">
-              <p className="text-xs text-slate-400 uppercase tracking-wide mb-2">
+            <div className="p-4 bg-slate-800/40 ring-1 ring-white/5 rounded-xl">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-3">
                 Rate History — Similar Routes
-                {rateHistoryLoading && <span className="ml-2 text-slate-500">Loading…</span>}
+                {rateHistoryLoading && <span className="ml-2 text-slate-600 normal-case font-normal tracking-normal">Loading…</span>}
               </p>
               {!rateHistoryLoading && rateHistory.length > 0 && (
                 <div className="space-y-1.5">
@@ -366,7 +366,7 @@ function AddLoadModal({ brokers, drivers, onClose, onCreated, onBrokerAdded, pre
                     <div key={i} className="flex items-center justify-between text-xs gap-4">
                       <span className="font-mono text-slate-400 shrink-0">{r.load_number}</span>
                       <span className="text-slate-600 truncate">{r.del_date ? new Date(r.del_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}</span>
-                      <span className="font-mono text-green-400 font-semibold shrink-0">${Number(r.gross_rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      <span className="font-mono text-emerald-400 font-semibold shrink-0">${Number(r.gross_rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
                   ))}
                 </div>
@@ -382,8 +382,8 @@ function AddLoadModal({ brokers, drivers, onClose, onCreated, onBrokerAdded, pre
           {error && <p className="text-red-400 text-sm">{error}</p>}
 
           <div className="flex justify-end gap-3 pt-1">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-slate-400 hover:text-white transition">Cancel</button>
-            <button type="submit" disabled={saving} className="px-5 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm rounded-lg font-medium transition">
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-slate-400 hover:text-white transition-colors">Cancel</button>
+            <button type="submit" disabled={saving} className="px-5 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-medium rounded-lg shadow-sm transition-colors">
               {saving ? 'Creating…' : 'Create Load'}
             </button>
           </div>
@@ -398,16 +398,16 @@ function AddLoadModal({ brokers, drivers, onClose, onCreated, onBrokerAdded, pre
 function FlagModal({ onClose, onConfirm }) {
   const [reason, setReason] = useState('')
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-slate-800 rounded-xl border border-slate-700 w-full max-w-sm p-6">
-        <h2 className="text-lg font-semibold text-white mb-1">Flag Load</h2>
-        <p className="text-slate-400 text-sm mb-4">Optionally provide a reason for flagging:</p>
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-slate-900 ring-1 ring-white/10 rounded-xl shadow-2xl w-full max-w-sm p-6">
+        <h2 className="text-base font-semibold text-white mb-1">Flag Load</h2>
+        <p className="text-slate-500 text-sm mb-4">Optionally provide a reason for flagging:</p>
         <textarea value={reason} onChange={e => setReason(e.target.value)} rows={3}
-          className="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-red-500 transition"
+          className="w-full bg-slate-800/60 ring-1 ring-white/10 rounded-lg px-3 py-2 text-white text-sm placeholder-slate-500 resize-none focus:outline-none focus:ring-2 focus:ring-red-500/40 transition"
           placeholder="Reason for flagging…" />
         <div className="flex justify-end gap-3 mt-4">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-slate-400 hover:text-white transition">Cancel</button>
-          <button onClick={() => onConfirm(reason)} className="px-5 py-2 bg-red-600 hover:bg-red-500 text-white text-sm rounded-lg font-medium transition">Flag Load</button>
+          <button onClick={onClose} className="px-4 py-2 text-sm text-slate-400 hover:text-white transition-colors">Cancel</button>
+          <button onClick={() => onConfirm(reason)} className="px-5 py-2 bg-red-600 hover:bg-red-500 text-white text-sm font-medium rounded-lg shadow-sm transition-colors">Flag Load</button>
         </div>
       </div>
     </div>
@@ -438,6 +438,7 @@ export default function Loads() {
   const [flagTarget, setFlagTarget] = useState(null)
   const [brokers, setBrokers] = useState([])
   const [drivers, setDrivers] = useState([])
+  const [toast, setToast] = useState('')
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -491,18 +492,30 @@ export default function Loads() {
   }
 
   async function handleApprove(id) {
+    const prev = loads.find(l => l.id === id)
+    setLoads(ls => ls.map(l => l.id === id ? { ...l, approval_status: 'APPROVED' } : l))
     try {
       await API.patch(`/loads/${id}/approve`, {})
-      fetchLoads()
-    } catch (err) { redirectOnUnauth(err, navigate) }
+    } catch (err) {
+      setLoads(ls => ls.map(l => l.id === id ? { ...l, approval_status: prev?.approval_status ?? 'PENDING' } : l))
+      setToast('Failed to approve load')
+      setTimeout(() => setToast(''), 3000)
+      redirectOnUnauth(err, navigate)
+    }
   }
 
   async function handleFlag(id, reason) {
+    const prev = loads.find(l => l.id === id)
+    setLoads(ls => ls.map(l => l.id === id ? { ...l, approval_status: 'FLAGGED' } : l))
+    setFlagTarget(null)
     try {
       await API.patch(`/loads/${id}/flag`, { reason: reason || null })
-      setFlagTarget(null)
-      fetchLoads()
-    } catch (err) { redirectOnUnauth(err, navigate) }
+    } catch (err) {
+      setLoads(ls => ls.map(l => l.id === id ? { ...l, approval_status: prev?.approval_status ?? 'PENDING' } : l))
+      setToast('Failed to flag load')
+      setTimeout(() => setToast(''), 3000)
+      redirectOnUnauth(err, navigate)
+    }
   }
 
   function handleLogout() { clearToken(); navigate('/login') }
@@ -517,7 +530,7 @@ export default function Loads() {
   }
 
   if (!user) {
-    return <div className="min-h-screen flex items-center justify-center bg-slate-900"><p className="text-slate-400">Loading…</p></div>
+    return <div className="min-h-screen flex items-center justify-center bg-[#0c1220]"><p className="text-slate-600 text-sm">Loading…</p></div>
   }
 
   const isHA = user.role === 'HEAD_ACCOUNTANT'
@@ -525,26 +538,28 @@ export default function Loads() {
   const cols = ['Load #', 'Broker', 'Driver', 'Route', 'Dates', 'Gross', 'Net', 'Dist.', ...(isDispatcher ? [] : ['Method', 'Payment']), 'BOL / POD', 'Status', 'Actions']
 
   return (
-    <div className="min-h-screen bg-slate-900">
+    <div className="min-h-screen bg-[#0c1220]">
       <Navbar active="Loads" user={user} onLogout={handleLogout} />
 
-      <main className="max-w-7xl mx-auto px-6 py-8">
+      <main className="max-w-7xl mx-auto px-6 py-10">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-white">Loads</h2>
+        <div className="flex items-center justify-between mb-8">
+          <h2 className="text-2xl font-bold text-white tracking-tight">Loads</h2>
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowUpload(true)}
-              className="px-4 py-2 bg-slate-700 hover:bg-slate-600 border border-slate-600 text-white text-sm rounded-lg font-medium transition flex items-center gap-2"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-              </svg>
-              Upload Load Confirmation
-            </button>
+            <Tooltip text="Upload a PDF or image to auto-fill load details" position="bottom">
+              <button
+                onClick={() => setShowUpload(true)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-medium rounded-lg ring-1 ring-white/10 transition-colors flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+                Upload Load Confirmation
+              </button>
+            </Tooltip>
             <button
               onClick={() => { setPrefillData(null); setShowAdd(true) }}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-lg font-medium transition"
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg shadow-sm transition-colors"
             >
               + Add Load
             </button>
@@ -552,22 +567,26 @@ export default function Loads() {
         </div>
 
         {/* Filters */}
-        <div className="flex flex-wrap items-center gap-3 mb-5">
+        <div className="flex flex-wrap items-center gap-2 mb-6">
           {/* Approval status */}
-          <div className="flex items-center gap-1 bg-slate-800 rounded-lg p-1 border border-slate-700">
+          <div className="flex items-center gap-0.5 bg-slate-800/50 ring-1 ring-white/10 rounded-lg p-1">
             {STATUS_TABS.map(s => (
               <button key={s} onClick={() => changeStatus(s)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition ${statusFilter === s ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}>
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                  statusFilter === s ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400 hover:text-white hover:bg-white/5'
+                }`}>
                 {s === 'ALL' ? 'All' : s.charAt(0) + s.slice(1).toLowerCase()}
               </button>
             ))}
           </div>
 
           {/* Load pipeline status */}
-          <div className="flex items-center gap-1 bg-slate-800 rounded-lg p-1 border border-slate-700">
+          <div className="flex items-center gap-0.5 bg-slate-800/50 ring-1 ring-white/10 rounded-lg p-1">
             {LOAD_STATUS_TABS.map(s => (
               <button key={s} onClick={() => changeLoadStatus(s)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition ${loadStatusFilter === s ? 'bg-slate-600 text-white' : 'text-slate-400 hover:text-white'}`}>
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                  loadStatusFilter === s ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-400 hover:text-white hover:bg-white/5'
+                }`}>
                 {LOAD_STATUS_LABELS[s]}
               </button>
             ))}
@@ -575,85 +594,95 @@ export default function Loads() {
 
           {/* Payment status — accountant only */}
           {!isDispatcher && (
-            <div className="flex items-center gap-1 bg-slate-800 rounded-lg p-1 border border-slate-700">
+            <div className="flex items-center gap-0.5 bg-slate-800/50 ring-1 ring-white/10 rounded-lg p-1">
               {PAYMENT_TABS.map(s => (
                 <button key={s} onClick={() => changePayment(s)}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition ${paymentFilter === s ? 'bg-slate-600 text-white' : 'text-slate-400 hover:text-white'}`}>
+                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                    paymentFilter === s ? 'bg-slate-600 text-white shadow-sm' : 'text-slate-400 hover:text-white hover:bg-white/5'
+                  }`}>
                   {s === 'ALL' ? 'All Payments' : s.charAt(0) + s.slice(1).toLowerCase()}
                 </button>
               ))}
             </div>
           )}
 
-          {total > 0 && <span className="text-sm text-slate-500 ml-1">{total} load{total !== 1 ? 's' : ''}</span>}
+          {total > 0 && <span className="text-xs text-slate-600 ml-1">{total} load{total !== 1 ? 's' : ''}</span>}
         </div>
 
         {/* Table */}
-        <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+        <div className="bg-slate-900 ring-1 ring-white/8 rounded-xl shadow-lg overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-slate-700">
+                <tr className="bg-slate-800/40 border-b border-white/[0.06]">
                   {cols.map(col => (
-                    <th key={col} className="text-left px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wide whitespace-nowrap">{col}</th>
+                    <th key={col} className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">{col}</th>
                   ))}
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-white/[0.04]">
                 {loadingTable ? (
-                  <tr><td colSpan={cols.length} className="text-center py-14 text-slate-500">Loading…</td></tr>
+                  Array.from({ length: 8 }).map((_, i) => <TableRowSkeleton key={i} cols={cols.length} />)
                 ) : loads.length === 0 ? (
                   <tr>
                     <td colSpan={cols.length}>
                       <div className="flex flex-col items-center justify-center py-16 gap-4">
-                        <svg className="w-14 h-14 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+                        <svg className="w-12 h-12 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z" />
                           <path strokeLinecap="round" strokeLinejoin="round" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10l2 1h7l1-1zM13 16l2-3h4l2 3H13z" />
                         </svg>
                         <div className="text-center">
                           <p className="text-white font-semibold">No loads found</p>
-                          <p className="text-slate-400 text-sm mt-1">Add your first load or sync Gmail to import automatically.</p>
+                          <p className="text-slate-500 text-sm mt-1">Add your first load or sync Gmail to import automatically.</p>
                         </div>
-                        <button onClick={() => navigate('/settings')} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 border border-slate-600 text-white text-sm rounded-lg font-medium transition">
+                        <button onClick={() => navigate('/settings')} className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-medium rounded-lg ring-1 ring-white/10 transition-colors">
                           Sync Gmail
                         </button>
                       </div>
                     </td>
                   </tr>
                 ) : (
-                  loads.map(load => (
+                  loads.map((load, i) => (
                     <tr key={load.id} onClick={() => navigate('/loads/' + load.id)}
-                      className="border-b border-slate-700/50 hover:bg-slate-700/40 cursor-pointer transition">
-                      <td className="px-4 py-3 font-mono text-white whitespace-nowrap">{load.load_number}</td>
-                      <td className="px-4 py-3 text-slate-300 whitespace-nowrap">{load.broker_name}</td>
-                      <td className="px-4 py-3 text-slate-300 whitespace-nowrap">{load.driver_name ?? <span className="text-slate-600">—</span>}</td>
-                      <td className="px-4 py-3 text-slate-300 text-xs whitespace-nowrap">
+                      className={`hover:bg-white/[0.03] cursor-pointer transition-colors ${i % 2 === 1 ? 'bg-slate-800/15' : ''}`}>
+                      <td className="px-5 py-3 font-mono text-sm text-white whitespace-nowrap">{load.load_number}</td>
+                      <td className="px-5 py-3 text-slate-300 text-sm whitespace-nowrap">{load.broker_name}</td>
+                      <td className="px-5 py-3 text-slate-400 text-sm whitespace-nowrap">{load.driver_name ?? <span className="text-slate-700">—</span>}</td>
+                      <td className="px-5 py-3 text-slate-500 text-xs whitespace-nowrap">
                         {load.pu_location && load.del_location
-                          ? <>{load.pu_location} <span className="text-slate-600 mx-1">→</span> {load.del_location}</>
-                          : <span className="text-slate-600">—</span>}
+                          ? <>{load.pu_location} <span className="text-slate-700 mx-1">→</span> {load.del_location}</>
+                          : <span className="text-slate-700">—</span>}
                       </td>
-                      <td className="px-4 py-3 text-slate-400 text-xs whitespace-nowrap">
+                      <td className="px-5 py-3 text-slate-500 text-xs whitespace-nowrap">
                         {load.pu_date || load.del_date
-                          ? <>{fmtDate(load.pu_date)}{load.pu_date && load.del_date && <span className="mx-1 text-slate-600">–</span>}{load.del_date ? fmtDate(load.del_date) : ''}</>
+                          ? <>{fmtDate(load.pu_date)}{load.pu_date && load.del_date && <span className="mx-1 text-slate-700">–</span>}{load.del_date ? fmtDate(load.del_date) : ''}</>
                           : '—'}
                       </td>
-                      <td className="px-4 py-3 text-white font-mono whitespace-nowrap">{fmt(load.gross_rate)}</td>
-                      <td className="px-4 py-3 text-green-400 font-mono whitespace-nowrap">{fmt(load.net_rate)}</td>
-                      <td className="px-4 py-3 text-slate-400 text-xs whitespace-nowrap">
-                        {load.distance_miles ? `${Math.round(load.distance_miles)} mi` : <span className="text-slate-600">—</span>}
+                      <td className="px-5 py-3 text-white font-mono text-sm whitespace-nowrap">{fmt(load.gross_rate)}</td>
+                      <td className="px-5 py-3 text-emerald-400 font-mono text-sm whitespace-nowrap">{fmt(load.net_rate)}</td>
+                      <td className="px-5 py-3 text-slate-500 text-xs whitespace-nowrap">
+                        {load.distance_miles ? `${Math.round(load.distance_miles)} mi` : <span className="text-slate-700">—</span>}
                       </td>
-                      {!isDispatcher && <td className="px-4 py-3 text-slate-400 text-xs whitespace-nowrap">{load.payment_method ?? '—'}</td>}
-                      {!isDispatcher && <td className="px-4 py-3 whitespace-nowrap"><PaymentBadge status={load.payment_status} /></td>}
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <span className={`inline-block w-2.5 h-2.5 rounded-full mr-1.5 ${load.bol_signed ? 'bg-green-500' : 'bg-slate-600'}`} title={`BOL: ${load.bol_signed ? 'Signed' : 'Not signed'}`} />
-                        <span className={`inline-block w-2.5 h-2.5 rounded-full ${load.pod_submitted ? 'bg-green-500' : 'bg-slate-600'}`} title={`POD: ${load.pod_submitted ? 'Submitted' : 'Not submitted'}`} />
+                      {!isDispatcher && <td className="px-5 py-3 text-slate-500 text-xs whitespace-nowrap">{load.payment_method ?? '—'}</td>}
+                      {!isDispatcher && <td className="px-5 py-3 whitespace-nowrap"><PaymentBadge status={load.payment_status} /></td>}
+                      <td className="px-5 py-3 whitespace-nowrap">
+                        <Tooltip text={load.bol_signed ? 'Bill of Lading signed' : 'Bill of Lading not signed'} className="mr-1.5">
+                          <span className={`inline-block w-2 h-2 rounded-full ${load.bol_signed ? 'bg-emerald-500' : 'bg-slate-700'}`} />
+                        </Tooltip>
+                        <Tooltip text={load.pod_submitted ? 'Proof of Delivery submitted' : 'Proof of Delivery not submitted'}>
+                          <span className={`inline-block w-2 h-2 rounded-full ${load.pod_submitted ? 'bg-emerald-500' : 'bg-slate-700'}`} />
+                        </Tooltip>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap"><ApprovalBadge status={load.approval_status} /></td>
-                      <td className="px-4 py-3 whitespace-nowrap" onClick={e => e.stopPropagation()}>
+                      <td className="px-5 py-3 whitespace-nowrap"><ApprovalBadge status={load.approval_status} /></td>
+                      <td className="px-5 py-3 whitespace-nowrap" onClick={e => e.stopPropagation()}>
                         {isHA && load.approval_status === 'PENDING' && (
                           <div className="flex gap-2">
-                            <button onClick={() => handleApprove(load.id)} className="px-2.5 py-1 bg-green-600/20 hover:bg-green-600/40 text-green-400 text-xs rounded border border-green-600/30 transition">Approve</button>
-                            <button onClick={() => setFlagTarget(load)} className="px-2.5 py-1 bg-red-600/20 hover:bg-red-600/40 text-red-400 text-xs rounded border border-red-600/30 transition">Flag</button>
+                            <Tooltip text="Approve this load">
+                              <button onClick={() => handleApprove(load.id)} className="px-2.5 py-1 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 text-xs font-medium rounded-lg ring-1 ring-emerald-500/30 transition-colors">Approve</button>
+                            </Tooltip>
+                            <Tooltip text="Flag this load for review">
+                              <button onClick={() => setFlagTarget(load)} className="px-2.5 py-1 bg-red-500/15 hover:bg-red-500/25 text-red-400 text-xs font-medium rounded-lg ring-1 ring-red-500/30 transition-colors">Flag</button>
+                            </Tooltip>
                           </div>
                         )}
                       </td>
@@ -667,10 +696,10 @@ export default function Loads() {
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-between mt-4 px-1">
-            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-4 py-2 text-sm text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition">← Prev</button>
-            <span className="text-sm text-slate-500">Page {page} of {totalPages}</span>
-            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="px-4 py-2 text-sm text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition">Next →</button>
+          <div className="flex items-center justify-between mt-5 px-1">
+            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-4 py-2 text-sm text-slate-500 hover:text-white hover:bg-white/5 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-colors">← Prev</button>
+            <span className="text-xs text-slate-600">Page {page} of {totalPages}</span>
+            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="px-4 py-2 text-sm text-slate-500 hover:text-white hover:bg-white/5 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-colors">Next →</button>
           </div>
         )}
       </main>
@@ -689,6 +718,12 @@ export default function Loads() {
       )}
       {flagTarget && (
         <FlagModal onClose={() => setFlagTarget(null)} onConfirm={reason => handleFlag(flagTarget.id, reason)} />
+      )}
+      {toast && (
+        <div className="fixed bottom-5 right-5 z-50 px-4 py-3 bg-red-500/10 ring-1 ring-red-500/20 rounded-xl text-sm text-red-400 shadow-xl flex items-center gap-3">
+          {toast}
+          <button onClick={() => setToast('')} className="text-red-400/50 hover:text-red-400 transition-colors text-base leading-none">✕</button>
+        </div>
       )}
     </div>
   )

@@ -3,6 +3,8 @@ import { useNavigate, useParams } from 'react-router-dom'
 import axios from 'axios'
 import { getToken, clearToken } from '../auth'
 import Navbar from '../components/Navbar'
+import { LoadDetailSkeleton } from '../components/Skeletons'
+import Tooltip from '../components/Tooltip'
 
 const API = axios.create({ baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000' })
 API.interceptors.request.use(config => {
@@ -35,27 +37,27 @@ function fmtDuration(miles) {
 
 function ApprovalBadge({ status }) {
   const cls = {
-    PENDING: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
-    APPROVED: 'bg-green-500/20 text-green-400 border-green-500/30',
-    FLAGGED: 'bg-red-500/20 text-red-400 border-red-500/30',
+    PENDING: 'bg-amber-500/15 text-amber-400 ring-1 ring-amber-500/30',
+    APPROVED: 'bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/30',
+    FLAGGED: 'bg-red-500/15 text-red-400 ring-1 ring-red-500/30',
   }
-  return <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${cls[status] ?? ''}`}>{status}</span>
+  return <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${cls[status] ?? ''}`}>{status}</span>
 }
 
 function PaymentBadge({ status }) {
   const cls = {
-    PENDING: 'bg-slate-600/40 text-slate-300 border-slate-500/30',
-    INVOICED: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-    RECEIVED: 'bg-green-500/20 text-green-400 border-green-500/30',
+    PENDING: 'bg-slate-700/60 text-slate-400 ring-1 ring-slate-600/40',
+    INVOICED: 'bg-blue-500/15 text-blue-400 ring-1 ring-blue-500/30',
+    RECEIVED: 'bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/30',
   }
-  return <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${cls[status] ?? ''}`}>{status}</span>
+  return <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${cls[status] ?? ''}`}>{status}</span>
 }
 
 function Field({ label, children }) {
   return (
     <div>
-      <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">{label}</p>
-      <div className="text-sm text-white">{children}</div>
+      <p className="text-xs font-semibold text-slate-600 uppercase tracking-widest mb-1.5">{label}</p>
+      <div className="text-sm text-slate-200">{children}</div>
     </div>
   )
 }
@@ -64,35 +66,44 @@ function Field({ label, children }) {
 
 const PIPELINE_STEPS = ['NEW', 'ACCEPTED', 'DISPATCHED', 'IN_ROUTE', 'DELIVERED']
 const STEP_LABELS = { NEW: 'New', ACCEPTED: 'Accepted', DISPATCHED: 'Dispatched', IN_ROUTE: 'In Route', DELIVERED: 'Delivered' }
+const STEP_DESCRIPTIONS = {
+  NEW: 'Load created, awaiting acceptance',
+  ACCEPTED: 'Dispatcher has accepted this load',
+  DISPATCHED: 'Driver has been dispatched',
+  IN_ROUTE: 'Driver is currently in transit',
+  DELIVERED: 'Load has been successfully delivered',
+}
 
 function PipelineBar({ currentStatus }) {
   const currentIdx = PIPELINE_STEPS.indexOf(currentStatus || 'NEW')
   return (
-    <div className="bg-slate-800 rounded-xl border border-slate-700 p-5 mb-4">
+    <div className="bg-slate-900 ring-1 ring-white/8 rounded-xl shadow-lg p-6 mb-5">
       <div className="flex items-center">
         {PIPELINE_STEPS.map((step, i) => {
           const done = i < currentIdx
           const active = i === currentIdx
           return (
             <div key={step} className="flex items-center flex-1 last:flex-none">
-              <div className="flex flex-col items-center gap-1.5">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border-2 transition ${
-                  done
-                    ? 'bg-green-500/20 border-green-500 text-green-400'
-                    : active
-                      ? 'bg-blue-500/20 border-blue-500 text-blue-400'
-                      : 'bg-slate-700 border-slate-600 text-slate-500'
-                }`}>
-                  {done ? '✓' : i + 1}
-                </div>
+              <div className="flex flex-col items-center gap-2">
+                <Tooltip text={`${STEP_LABELS[step]}: ${STEP_DESCRIPTIONS[step]}`}>
+                  <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold transition ${
+                    done
+                      ? 'bg-emerald-500/15 ring-1 ring-emerald-500/40 text-emerald-400'
+                      : active
+                        ? 'bg-blue-500/15 ring-1 ring-blue-500/40 text-blue-400'
+                        : 'bg-slate-800 ring-1 ring-white/8 text-slate-600'
+                  }`}>
+                    {done ? '✓' : i + 1}
+                  </div>
+                </Tooltip>
                 <span className={`text-xs font-medium whitespace-nowrap ${
-                  done ? 'text-green-400' : active ? 'text-blue-400' : 'text-slate-500'
+                  done ? 'text-emerald-400' : active ? 'text-blue-400' : 'text-slate-600'
                 }`}>
                   {STEP_LABELS[step]}
                 </span>
               </div>
               {i < PIPELINE_STEPS.length - 1 && (
-                <div className={`flex-1 h-px mx-2 mb-5 ${i < currentIdx ? 'bg-green-500/40' : 'bg-slate-700'}`} />
+                <div className={`flex-1 h-px mx-3 mb-7 ${i < currentIdx ? 'bg-emerald-500/25' : 'bg-white/[0.06]'}`} />
               )}
             </div>
           )
@@ -119,7 +130,7 @@ function StatusActionButton({ load, user, onUpdated, onError }) {
 
   if (action.next === 'DISPATCHED' && !load.driver_id) {
     return (
-      <div className="text-xs text-slate-500 px-4 py-2 border border-slate-700 rounded-lg">
+      <div className="text-xs text-slate-600 px-4 py-2 ring-1 ring-white/8 rounded-lg">
         Assign a driver before dispatching
       </div>
     )
@@ -127,10 +138,12 @@ function StatusActionButton({ load, user, onUpdated, onError }) {
 
   async function handleAdvance() {
     setLoading(true)
+    onUpdated({ ...load, load_status: action.next })
     try {
       const r = await API.patch(`/loads/${load.id}/status`, { status: action.next })
       onUpdated(r.data)
     } catch (err) {
+      onUpdated(load)
       onError(err.response?.data?.detail || 'Status update failed')
     } finally {
       setLoading(false)
@@ -141,7 +154,7 @@ function StatusActionButton({ load, user, onUpdated, onError }) {
     <button
       onClick={handleAdvance}
       disabled={loading}
-      className="px-5 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-60 text-white text-sm rounded-lg font-medium transition"
+      className="px-5 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-60 text-white text-sm font-medium rounded-lg shadow-sm transition-colors"
     >
       {loading ? 'Updating…' : action.label}
     </button>
@@ -152,13 +165,13 @@ function StatusActionButton({ load, user, onUpdated, onError }) {
 
 const EVENT_DOT = {
   CREATED: 'bg-blue-500',
-  STATUS_CHANGED: 'bg-purple-500',
-  APPROVED: 'bg-green-500',
+  STATUS_CHANGED: 'bg-violet-500',
+  APPROVED: 'bg-emerald-500',
   FLAGGED: 'bg-red-500',
   BOL_GENERATED: 'bg-slate-500',
   INVOICE_GENERATED: 'bg-slate-500',
-  BOL_SIGNED: 'bg-green-500',
-  POD_SUBMITTED: 'bg-green-500',
+  BOL_SIGNED: 'bg-emerald-500',
+  POD_SUBMITTED: 'bg-emerald-500',
 }
 const EVENT_LABEL = {
   CREATED: 'Load Created',
@@ -175,31 +188,31 @@ const EVENT_LABEL = {
 function Timeline({ events }) {
   if (!events || events.length === 0) {
     return (
-      <div className="bg-slate-800 rounded-xl border border-slate-700 p-6 mb-4">
-        <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-3">Timeline</h3>
-        <p className="text-sm text-slate-500">No events yet.</p>
+      <div className="bg-slate-900 ring-1 ring-white/8 rounded-xl shadow-lg p-6 mb-5">
+        <h3 className="text-xs font-semibold text-slate-600 uppercase tracking-widest mb-3">Timeline</h3>
+        <p className="text-sm text-slate-600">No events yet.</p>
       </div>
     )
   }
 
   return (
-    <div className="bg-slate-800 rounded-xl border border-slate-700 p-6 mb-4">
-      <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-5">Timeline</h3>
+    <div className="bg-slate-900 ring-1 ring-white/8 rounded-xl shadow-lg p-6 mb-5">
+      <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-6">Timeline</h3>
       <div className="relative">
         {events.map((ev, i) => (
           <div key={ev.id} className="flex gap-4 relative">
             {i < events.length - 1 && (
-              <div className="absolute left-[6px] top-3.5 bottom-0 w-px bg-slate-700" />
+              <div className="absolute left-[6px] top-3.5 bottom-0 w-px bg-white/[0.06]" />
             )}
-            <div className={`w-3.5 h-3.5 rounded-full shrink-0 mt-1 ring-2 ring-slate-800 ${EVENT_DOT[ev.event_type] ?? 'bg-slate-500'}`} />
+            <div className={`w-3.5 h-3.5 rounded-full shrink-0 mt-1 ring-2 ring-[#0c1220] ${EVENT_DOT[ev.event_type] ?? 'bg-slate-600'}`} />
             <div className="pb-5 min-w-0">
               {EVENT_LABEL[ev.event_type] && (
-                <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-0.5">
+                <p className="text-xs font-semibold text-slate-600 uppercase tracking-widest mb-0.5">
                   {EVENT_LABEL[ev.event_type]}
                 </p>
               )}
-              <p className="text-sm text-white">{ev.description}</p>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="text-sm text-slate-200">{ev.description}</p>
+              <p className="text-xs text-slate-600 mt-0.5">
                 {ev.created_by_name ? `${ev.created_by_name} · ` : ''}{fmtTs(ev.created_at)}
               </p>
             </div>
@@ -212,15 +225,15 @@ function Timeline({ events }) {
 
 function DeleteConfirmModal({ loadNumber, onClose, onConfirm, loading }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-      <div className="bg-slate-800 rounded-xl border border-slate-700 p-6 w-full max-w-sm mx-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+      <div className="bg-slate-900 ring-1 ring-white/10 rounded-xl shadow-2xl p-6 w-full max-w-sm mx-4">
         <h3 className="text-base font-semibold text-white mb-2">Delete Load</h3>
-        <p className="text-sm text-slate-300 mb-5">
+        <p className="text-sm text-slate-400 mb-6">
           Are you sure you want to delete load <span className="font-mono text-white">{loadNumber}</span>? This cannot be undone.
         </p>
         <div className="flex gap-3">
-          <button onClick={onClose} disabled={loading} className="flex-1 px-4 py-2 border border-slate-600 hover:border-slate-500 text-slate-300 hover:text-white text-sm rounded-lg transition disabled:opacity-50">Cancel</button>
-          <button onClick={onConfirm} disabled={loading} className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white text-sm rounded-lg font-medium transition">
+          <button onClick={onClose} disabled={loading} className="flex-1 px-4 py-2 bg-slate-800 hover:bg-slate-700 ring-1 ring-white/10 text-slate-300 hover:text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50">Cancel</button>
+          <button onClick={onConfirm} disabled={loading} className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white text-sm font-medium rounded-lg shadow-sm transition-colors">
             {loading ? 'Deleting…' : 'Delete'}
           </button>
         </div>
@@ -232,19 +245,19 @@ function DeleteConfirmModal({ loadNumber, onClose, onConfirm, loading }) {
 function FlagModal({ onClose, onConfirm }) {
   const [reason, setReason] = useState('')
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-      <div className="bg-slate-800 rounded-xl border border-slate-700 p-6 w-full max-w-sm mx-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+      <div className="bg-slate-900 ring-1 ring-white/10 rounded-xl shadow-2xl p-6 w-full max-w-sm mx-4">
         <h3 className="text-base font-semibold text-white mb-4">Flag Load</h3>
         <textarea
           value={reason}
           onChange={e => setReason(e.target.value)}
           placeholder="Reason (optional)"
           rows={3}
-          className="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white text-sm resize-none focus:outline-none focus:border-red-500"
+          className="w-full bg-slate-800/60 ring-1 ring-white/10 rounded-lg px-3 py-2 text-white text-sm placeholder-slate-500 resize-none focus:outline-none focus:ring-2 focus:ring-red-500/40 transition"
         />
         <div className="flex gap-3 mt-4">
-          <button onClick={() => onConfirm(reason)} className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-500 text-white text-sm rounded-lg font-medium transition">Flag</button>
-          <button onClick={onClose} className="flex-1 px-4 py-2 border border-slate-600 hover:border-slate-500 text-slate-300 hover:text-white text-sm rounded-lg transition">Cancel</button>
+          <button onClick={() => onConfirm(reason)} className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-500 text-white text-sm font-medium rounded-lg shadow-sm transition-colors">Flag</button>
+          <button onClick={onClose} className="flex-1 px-4 py-2 bg-slate-800 hover:bg-slate-700 ring-1 ring-white/10 text-slate-300 hover:text-white text-sm font-medium rounded-lg transition-colors">Cancel</button>
         </div>
       </div>
     </div>
@@ -324,7 +337,19 @@ export default function LoadDetail() {
     }
   }
 
-  async function handleToggle(field, value) { await patch({ [field]: value }) }
+  async function handleToggle(field, value) {
+    const prevLoad = load
+    setLoad(l => ({ ...l, [field]: value }))
+    try {
+      const r = await API.patch(`/loads/${id}`, { [field]: value })
+      setLoad(r.data)
+      setNotes(r.data.notes ?? '')
+    } catch (err) {
+      setLoad(prevLoad)
+      if (err.response?.status === 401) { clearToken(); navigate('/login', { replace: true }) }
+      setError(err.response?.data?.detail || 'Update failed')
+    }
+  }
 
   async function handleNotesSave() {
     if (notes === (load?.notes ?? '')) return
@@ -514,73 +539,93 @@ export default function LoadDetail() {
 
   function handleLogout() { clearToken(); navigate('/login') }
 
-  if (!user || !load) {
-    return <div className="min-h-screen flex items-center justify-center bg-slate-900"><p className="text-slate-400">Loading…</p></div>
+  if (!user) return <div className="min-h-screen bg-[#0c1220]" />
+  if (!load) {
+    return (
+      <div className="min-h-screen bg-[#0c1220]">
+        <Navbar active="Loads" user={user} onLogout={handleLogout} />
+        <main className="max-w-4xl mx-auto px-6 py-10">
+          <LoadDetailSkeleton />
+        </main>
+      </div>
+    )
   }
 
   const isHA = user.role === 'HEAD_ACCOUNTANT'
   const isDispatcher = user.role === 'DISPATCHER'
-  const inp = 'w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500 transition'
-  const lbl = 'block text-xs text-slate-400 mb-1'
+  const inp = 'w-full bg-slate-800/60 ring-1 ring-white/10 rounded-lg px-3 py-2 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition'
+  const lbl = 'block text-xs font-semibold text-slate-600 uppercase tracking-widest mb-1.5'
 
   return (
-    <div className="min-h-screen bg-slate-900">
+    <div className="min-h-screen bg-[#0c1220]">
       <Navbar active="Loads" user={user} onLogout={handleLogout} />
 
-      <main className="max-w-4xl mx-auto px-6 py-8">
+      <main className="max-w-4xl mx-auto px-6 py-10">
         {/* Back + header */}
-        <div className="flex items-center gap-3 mb-4 flex-wrap">
-          <button onClick={() => navigate('/loads')} className="text-sm text-slate-400 hover:text-white transition flex items-center gap-1">
-            ← Loads
+        <div className="flex items-center gap-3 mb-6 flex-wrap">
+          <button onClick={() => navigate('/loads')} className="text-sm text-slate-500 hover:text-white transition-colors flex items-center gap-1.5">
+            <span className="text-slate-600">←</span> Loads
           </button>
-          <span className="text-slate-600">/</span>
+          <span className="text-slate-700">/</span>
           <h2 className="text-lg font-bold text-white font-mono">{load.load_number}</h2>
           <ApprovalBadge status={load.approval_status} />
           <div className="flex-1" />
           <div className="flex items-center gap-2 flex-wrap">
             {isDispatcher && !editMode && (
-              <button
-                onClick={openEdit}
-                className="px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/40 border border-blue-600/30 text-blue-400 hover:text-blue-300 text-xs rounded-lg font-medium transition"
-              >
-                Edit Load
-              </button>
+              <Tooltip text="Edit load details">
+                <button
+                  onClick={openEdit}
+                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 ring-1 ring-white/10 text-slate-300 hover:text-white text-xs font-medium rounded-lg transition-colors"
+                >
+                  Edit Load
+                </button>
+              </Tooltip>
             )}
             {isDispatcher && (
-              <button
-                onClick={handleGenerateBOL}
-                disabled={bolLoading}
-                className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 border border-slate-600 text-white text-xs rounded-lg font-medium transition disabled:opacity-50"
-              >
-                {bolLoading ? 'Generating…' : 'Download BOL'}
-              </button>
+              <Tooltip text="Download Bill of Lading PDF">
+                <button
+                  onClick={handleGenerateBOL}
+                  disabled={bolLoading}
+                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 ring-1 ring-white/10 text-slate-300 hover:text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50"
+                >
+                  {bolLoading ? 'Generating…' : 'Download BOL'}
+                </button>
+              </Tooltip>
             )}
             {isHA && (
-              <button
-                onClick={handleGenerateInvoice}
-                disabled={invoiceLoading}
-                className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 border border-slate-600 text-white text-xs rounded-lg font-medium transition disabled:opacity-50"
-              >
-                {invoiceLoading ? 'Generating…' : 'Generate Invoice'}
-              </button>
+              <Tooltip text="Download Invoice PDF">
+                <button
+                  onClick={handleGenerateInvoice}
+                  disabled={invoiceLoading}
+                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 ring-1 ring-white/10 text-slate-300 hover:text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50"
+                >
+                  {invoiceLoading ? 'Generating…' : 'Generate Invoice'}
+                </button>
+              </Tooltip>
             )}
-            <button
-              onClick={handleCopyTracking}
-              className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 border border-slate-600 text-xs rounded-lg font-medium transition text-slate-300 hover:text-white"
-            >
-              {trackCopied ? '✓ Copied!' : 'Copy Tracking Link'}
-            </button>
+            <Tooltip text="Copy public tracking URL to clipboard">
+              <button
+                onClick={handleCopyTracking}
+                className={`px-3 py-1.5 ring-1 text-xs font-medium rounded-lg transition-colors ${
+                  trackCopied
+                    ? 'bg-emerald-500/15 ring-emerald-500/30 text-emerald-400'
+                    : 'bg-slate-800 hover:bg-slate-700 ring-white/10 text-slate-300 hover:text-white'
+                }`}
+              >
+                {trackCopied ? '✓ Copied!' : 'Copy Tracking Link'}
+              </button>
+            </Tooltip>
           </div>
         </div>
 
         {error && (
-          <div className="mb-4 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-lg text-sm text-red-400">
+          <div className="mb-5 px-4 py-3 bg-red-500/10 ring-1 ring-red-500/20 rounded-xl text-sm text-red-400 flex items-center justify-between">
             {error}
-            <button onClick={() => setError('')} className="ml-3 text-red-400/70 hover:text-red-400">✕</button>
+            <button onClick={() => setError('')} className="ml-3 text-red-400/50 hover:text-red-400 transition-colors">✕</button>
           </div>
         )}
         {successMsg && (
-          <div className="mb-4 px-4 py-3 bg-green-500/10 border border-green-500/20 rounded-lg text-sm text-green-400">
+          <div className="mb-5 px-4 py-3 bg-emerald-500/10 ring-1 ring-emerald-500/20 rounded-xl text-sm text-emerald-400">
             {successMsg}
           </div>
         )}
@@ -590,10 +635,10 @@ export default function LoadDetail() {
 
         {/* Status action for dispatchers */}
         {user.role === 'DISPATCHER' && load.load_status !== 'DELIVERED' && (
-          <div className="bg-slate-800 rounded-xl border border-slate-700 p-5 mb-4 flex items-center gap-4">
+          <div className="bg-slate-900 ring-1 ring-white/8 rounded-xl shadow-lg p-5 mb-5 flex items-center gap-4">
             <div className="flex-1">
-              <p className="text-xs text-slate-400 uppercase tracking-wide mb-0.5">Pipeline Action</p>
-              <p className="text-sm text-slate-300">
+              <p className="text-xs font-semibold text-slate-600 uppercase tracking-widest mb-1">Pipeline Action</p>
+              <p className="text-sm text-slate-400">
                 Current status: <span className="text-white font-medium">{STEP_LABELS[load.load_status] || load.load_status}</span>
               </p>
             </div>
@@ -608,55 +653,55 @@ export default function LoadDetail() {
 
         {/* Distance & ETA */}
         {(load.distance_miles || load.calculated_eta || load.driver_eta) && (
-          <div className="bg-slate-800 rounded-xl border border-slate-700 p-6 mb-4">
-            <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-5">Distance & ETA</h3>
+          <div className="bg-slate-900 ring-1 ring-white/8 rounded-xl shadow-lg p-6 mb-5">
+            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-5">Distance & ETA</h3>
             <div className="space-y-4">
               {load.distance_miles != null && (
-                <div className="flex items-start gap-3">
-                  <span className="text-xs text-slate-500 uppercase tracking-wide w-36 shrink-0 mt-0.5">Distance</span>
-                  <span className="text-sm text-white">
+                <div className="flex items-start gap-4">
+                  <span className="text-xs font-semibold text-slate-600 uppercase tracking-widest w-36 shrink-0 mt-0.5">Distance</span>
+                  <span className="text-sm text-slate-200">
                     {load.distance_miles.toLocaleString()} miles
-                    <span className="text-slate-500 ml-2">· ~{fmtDuration(load.distance_miles)} drive</span>
+                    <span className="text-slate-600 ml-2">· ~{fmtDuration(load.distance_miles)} drive</span>
                   </span>
                 </div>
               )}
               {load.calculated_eta && (
-                <div className="flex items-start gap-3">
-                  <span className="text-xs text-slate-500 uppercase tracking-wide w-36 shrink-0 mt-0.5">Calculated ETA</span>
-                  <span className="text-sm text-slate-300">{fmtTs(load.calculated_eta)}</span>
+                <div className="flex items-start gap-4">
+                  <span className="text-xs font-semibold text-slate-600 uppercase tracking-widest w-36 shrink-0 mt-0.5">Calculated ETA</span>
+                  <span className="text-sm text-slate-400">{fmtTs(load.calculated_eta)}</span>
                 </div>
               )}
-              <div className="flex items-start gap-3">
-                <span className="text-xs text-slate-500 uppercase tracking-wide w-36 shrink-0 mt-0.5">Driver ETA</span>
+              <div className="flex items-start gap-4">
+                <span className="text-xs font-semibold text-slate-600 uppercase tracking-widest w-36 shrink-0 mt-0.5">Driver ETA</span>
                 {etaEdit ? (
                   <form onSubmit={handleSaveDriverEta} className="flex flex-col gap-2 flex-1">
                     <input
                       type="datetime-local"
                       value={etaForm.driver_eta}
                       onChange={e => setEtaForm(f => ({ ...f, driver_eta: e.target.value }))}
-                      className="bg-slate-700 border border-slate-600 rounded px-3 py-1.5 text-white text-sm focus:outline-none focus:border-blue-500 transition w-56"
+                      className="bg-slate-800/60 ring-1 ring-white/10 rounded-lg px-3 py-1.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition w-56"
                     />
                     <input
                       type="text"
                       value={etaForm.eta_notes}
                       onChange={e => setEtaForm(f => ({ ...f, eta_notes: e.target.value }))}
                       placeholder="Notes (optional)…"
-                      className="bg-slate-700 border border-slate-600 rounded px-3 py-1.5 text-white text-sm focus:outline-none focus:border-blue-500 transition w-72"
+                      className="bg-slate-800/60 ring-1 ring-white/10 rounded-lg px-3 py-1.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition w-72"
                     />
                     <div className="flex gap-2">
-                      <button type="submit" disabled={etaSaving} className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs rounded-lg font-medium transition">
+                      <button type="submit" disabled={etaSaving} className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-medium rounded-lg shadow-sm transition-colors">
                         {etaSaving ? 'Saving…' : 'Save'}
                       </button>
-                      <button type="button" onClick={() => setEtaEdit(false)} className="px-3 py-1.5 text-slate-400 hover:text-white text-xs transition">Cancel</button>
+                      <button type="button" onClick={() => setEtaEdit(false)} className="px-3 py-1.5 text-slate-500 hover:text-white text-xs transition-colors">Cancel</button>
                     </div>
                   </form>
                 ) : (
                   <div className="flex items-center gap-3 flex-wrap">
-                    <span className="text-sm text-white">
-                      {load.driver_eta ? fmtTs(load.driver_eta) : <span className="text-slate-600">Not set</span>}
+                    <span className="text-sm text-slate-200">
+                      {load.driver_eta ? fmtTs(load.driver_eta) : <span className="text-slate-700">Not set</span>}
                     </span>
                     {isDispatcher && (
-                      <button onClick={openEtaEdit} className="text-xs text-blue-400 hover:text-blue-300 transition">
+                      <button onClick={openEtaEdit} className="text-xs text-blue-400 hover:text-blue-300 transition-colors">
                         {load.driver_eta ? 'Edit' : '+ Set ETA'}
                       </button>
                     )}
@@ -664,9 +709,9 @@ export default function LoadDetail() {
                 )}
               </div>
               {load.eta_notes && !etaEdit && (
-                <div className="flex items-start gap-3">
-                  <span className="text-xs text-slate-500 uppercase tracking-wide w-36 shrink-0 mt-0.5">ETA Notes</span>
-                  <span className="text-sm text-slate-300">{load.eta_notes}</span>
+                <div className="flex items-start gap-4">
+                  <span className="text-xs font-semibold text-slate-600 uppercase tracking-widest w-36 shrink-0 mt-0.5">ETA Notes</span>
+                  <span className="text-sm text-slate-400">{load.eta_notes}</span>
                 </div>
               )}
             </div>
@@ -674,10 +719,10 @@ export default function LoadDetail() {
         )}
 
         {editMode ? (
-          <form id="load-edit-form" onSubmit={handleSaveEdit} className="space-y-4 mb-4">
+          <form id="load-edit-form" onSubmit={handleSaveEdit} className="space-y-4 mb-5">
             {/* Load Details */}
-            <div className="bg-slate-800 rounded-xl border border-slate-700 p-6">
-              <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-5">Load Details</h3>
+            <div className="bg-slate-900 ring-1 ring-white/8 rounded-xl shadow-lg p-6">
+              <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-5">Load Details</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <div><label className={lbl}>Load Number *</label><input name="load_number" value={editForm.load_number} onChange={setEF} required className={inp} /></div>
                 <div>
@@ -716,31 +761,31 @@ export default function LoadDetail() {
               </div>
             </div>
             {/* Rates */}
-            <div className="bg-slate-800 rounded-xl border border-slate-700 p-6">
-              <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-5">Rates</h3>
+            <div className="bg-slate-900 ring-1 ring-white/8 rounded-xl shadow-lg p-6">
+              <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-5">Rates</h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div><label className={lbl}>Gross Rate *</label><input name="gross_rate" value={editForm.gross_rate} onChange={setEF} type="number" step="0.01" required className={inp} /></div>
                 <div><label className={lbl}>Cut Rate</label><input name="cut_rate" value={editForm.cut_rate} onChange={setEF} type="number" step="0.01" className={inp} /></div>
                 <div><label className={lbl}>Added Rate</label><input name="added_rate" value={editForm.added_rate} onChange={setEF} type="number" step="0.01" className={inp} /></div>
                 <div>
                   <label className={lbl}>Final Rate (auto)</label>
-                  <div className="px-3 py-2 bg-slate-700/50 rounded border border-slate-600 text-green-400 text-sm font-mono">
+                  <div className="px-3 py-2 bg-slate-800/40 ring-1 ring-white/5 rounded-lg text-emerald-400 text-sm font-mono">
                     {fmt((parseFloat(editForm.gross_rate)||0) - (parseFloat(editForm.cut_rate)||0) + (parseFloat(editForm.added_rate)||0))}
                   </div>
                 </div>
               </div>
             </div>
             {/* Notes */}
-            <div className="bg-slate-800 rounded-xl border border-slate-700 p-6">
+            <div className="bg-slate-900 ring-1 ring-white/8 rounded-xl shadow-lg p-6">
               <label className={lbl}>Notes</label>
               <textarea name="notes" value={editForm.notes} onChange={setEF} rows={4} className={`${inp} resize-none mt-1`} placeholder="Notes…" />
             </div>
             {/* Actions */}
             <div className="flex gap-3 justify-end">
-              <button type="button" onClick={() => setEditMode(false)} className="px-5 py-2 border border-slate-600 hover:border-slate-500 text-slate-300 hover:text-white text-sm rounded-lg transition">
+              <button type="button" onClick={() => setEditMode(false)} className="px-5 py-2 bg-slate-800 hover:bg-slate-700 ring-1 ring-white/10 text-slate-300 hover:text-white text-sm font-medium rounded-lg transition-colors">
                 Cancel
               </button>
-              <button type="submit" disabled={editSaving} className="px-5 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm rounded-lg font-medium transition">
+              <button type="submit" disabled={editSaving} className="px-5 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-medium rounded-lg shadow-sm transition-colors">
                 {editSaving ? 'Saving…' : 'Save Changes'}
               </button>
             </div>
@@ -748,28 +793,28 @@ export default function LoadDetail() {
         ) : (
           <>
             {/* Main details */}
-            <div className="bg-slate-800 rounded-xl border border-slate-700 p-6 mb-4">
-              <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-5">Load Details</h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-x-8 gap-y-5">
+            <div className="bg-slate-900 ring-1 ring-white/8 rounded-xl shadow-lg p-6 mb-5">
+              <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-6">Load Details</h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-x-8 gap-y-6">
                 <Field label="Load Number"><span className="font-mono">{load.load_number}</span></Field>
                 <Field label="Broker">{load.broker_name}</Field>
-                <Field label="Driver">{load.driver_name ?? <span className="text-slate-500">Unassigned</span>}</Field>
+                <Field label="Driver">{load.driver_name ?? <span className="text-slate-600">Unassigned</span>}</Field>
                 <Field label="Pickup">
                   <div>{fmtDate(load.pu_date)}</div>
-                  {load.pu_time_window && <div className="text-xs text-slate-500 mt-0.5">{load.pu_time_window}</div>}
+                  {load.pu_time_window && <div className="text-xs text-slate-600 mt-0.5">{load.pu_time_window}</div>}
                 </Field>
                 <Field label="Delivery">
                   <div>{fmtDate(load.del_date)}</div>
-                  {load.del_time_window && <div className="text-xs text-slate-500 mt-0.5">{load.del_time_window}</div>}
+                  {load.del_time_window && <div className="text-xs text-slate-600 mt-0.5">{load.del_time_window}</div>}
                 </Field>
-                {!isDispatcher && <Field label="Payment Method">{load.payment_method ?? <span className="text-slate-500">—</span>}</Field>}
+                {!isDispatcher && <Field label="Payment Method">{load.payment_method ?? <span className="text-slate-600">—</span>}</Field>}
                 <Field label="Pickup Location">
-                  <div>{load.pu_location || <span className="text-slate-500">—</span>}</div>
-                  {load.pu_address && <div className="text-xs text-slate-500 mt-0.5">{load.pu_address}</div>}
+                  <div>{load.pu_location || <span className="text-slate-600">—</span>}</div>
+                  {load.pu_address && <div className="text-xs text-slate-600 mt-0.5">{load.pu_address}</div>}
                 </Field>
                 <Field label="Delivery Location">
-                  <div>{load.del_location || <span className="text-slate-500">—</span>}</div>
-                  {load.del_address && <div className="text-xs text-slate-500 mt-0.5">{load.del_address}</div>}
+                  <div>{load.del_location || <span className="text-slate-600">—</span>}</div>
+                  {load.del_address && <div className="text-xs text-slate-600 mt-0.5">{load.del_address}</div>}
                 </Field>
                 {load.consignee_name && <Field label="Consignee">{load.consignee_name}</Field>}
                 {load.reference_number && <Field label="Reference #"><span className="font-mono">{load.reference_number}</span></Field>}
@@ -779,47 +824,47 @@ export default function LoadDetail() {
             </div>
 
             {/* Rates */}
-            <div className="bg-slate-800 rounded-xl border border-slate-700 p-6 mb-4">
-              <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-5">Rates</h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-x-8 gap-y-5">
+            <div className="bg-slate-900 ring-1 ring-white/8 rounded-xl shadow-lg p-6 mb-5">
+              <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-6">Rates</h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-x-8 gap-y-6">
                 <Field label="Gross Rate"><span className="text-white font-mono">{fmt(load.gross_rate)}</span></Field>
                 <Field label="Cut Rate"><span className="font-mono text-red-400">{fmt(load.cut_rate)}</span></Field>
-                <Field label="Added Rate"><span className="font-mono text-green-400">{fmt(load.added_rate)}</span></Field>
-                <Field label="Final Rate"><span className="font-mono">{fmt(load.final_rate)}</span></Field>
+                <Field label="Added Rate"><span className="font-mono text-emerald-400">{fmt(load.added_rate)}</span></Field>
+                <Field label="Final Rate"><span className="font-mono text-slate-200">{fmt(load.final_rate)}</span></Field>
                 {!isDispatcher && <Field label="Quickpay Deduction"><span className="font-mono text-red-400">{fmt(load.quickpay_deduction)}</span></Field>}
-                {!isDispatcher && <Field label="Net Rate"><span className="text-green-400 font-mono font-semibold text-base">{fmt(load.net_rate)}</span></Field>}
+                {!isDispatcher && <Field label="Net Rate"><span className="text-emerald-400 font-mono font-bold text-base">{fmt(load.net_rate)}</span></Field>}
               </div>
             </div>
           </>
         )}
 
         {/* Documents */}
-        <div className="bg-slate-800 rounded-xl border border-slate-700 p-6 mb-4">
-          <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-5">Documents</h3>
+        <div className="bg-slate-900 ring-1 ring-white/8 rounded-xl shadow-lg p-6 mb-5">
+          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-5">Documents</h3>
           <div className="flex flex-col gap-4">
-            <label className="flex items-center gap-3 cursor-pointer select-none">
+            <label className="flex items-center gap-3 cursor-pointer select-none group">
               <input type="checkbox" checked={load.bol_signed} onChange={e => handleToggle('bol_signed', e.target.checked)}
-                className="w-4 h-4 rounded border-slate-500 bg-slate-700 text-blue-500 focus:ring-blue-500 focus:ring-offset-slate-800" />
-              <span className="text-sm text-white">BOL Signed</span>
-              {load.bol_signed && <span className="text-xs text-green-400">✓ Signed</span>}
+                className="w-4 h-4 rounded border-slate-600 bg-slate-800 text-blue-500 focus:ring-blue-500 focus:ring-offset-0 focus:ring-offset-transparent" />
+              <span className="text-sm text-slate-300 group-hover:text-white transition-colors">BOL Signed</span>
+              {load.bol_signed && <span className="text-xs text-emerald-400">✓ Signed</span>}
             </label>
-            <label className="flex items-center gap-3 cursor-pointer select-none">
+            <label className="flex items-center gap-3 cursor-pointer select-none group">
               <input type="checkbox" checked={load.pod_submitted} onChange={e => handleToggle('pod_submitted', e.target.checked)}
-                className="w-4 h-4 rounded border-slate-500 bg-slate-700 text-blue-500 focus:ring-blue-500 focus:ring-offset-slate-800" />
-              <span className="text-sm text-white">POD Submitted</span>
-              {load.pod_submitted && <span className="text-xs text-green-400">✓ Submitted</span>}
+                className="w-4 h-4 rounded border-slate-600 bg-slate-800 text-blue-500 focus:ring-blue-500 focus:ring-offset-0 focus:ring-offset-transparent" />
+              <span className="text-sm text-slate-300 group-hover:text-white transition-colors">POD Submitted</span>
+              {load.pod_submitted && <span className="text-xs text-emerald-400">✓ Submitted</span>}
             </label>
           </div>
         </div>
 
-        {/* Timeline from events */}
+        {/* Timeline */}
         <Timeline events={events} />
 
         {!editMode && (
-          <div className="bg-slate-800 rounded-xl border border-slate-700 p-6 mb-4">
+          <div className="bg-slate-900 ring-1 ring-white/8 rounded-xl shadow-lg p-6 mb-5">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wide">Notes</h3>
-              {saving && <span className="text-xs text-slate-500">Saving…</span>}
+              <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-widest">Notes</h3>
+              {saving && <span className="text-xs text-slate-600">Saving…</span>}
             </div>
             <textarea
               value={notes}
@@ -827,21 +872,21 @@ export default function LoadDetail() {
               onBlur={handleNotesSave}
               placeholder="Add notes…"
               rows={4}
-              className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2.5 text-white text-sm resize-none focus:outline-none focus:border-blue-500 transition"
+              className="w-full bg-slate-800/60 ring-1 ring-white/10 rounded-lg px-3 py-2.5 text-white text-sm placeholder-slate-600 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition"
             />
-            <p className="text-xs text-slate-500 mt-1.5">Changes saved automatically on blur.</p>
+            <p className="text-xs text-slate-700 mt-1.5">Changes saved automatically on blur.</p>
           </div>
         )}
 
         {/* Approval — HA only */}
         {isHA && load.approval_status === 'PENDING' && (
-          <div className="bg-slate-800 rounded-xl border border-slate-700 p-6">
-            <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-4">Approval</h3>
+          <div className="bg-slate-900 ring-1 ring-white/8 rounded-xl shadow-lg p-6">
+            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-5">Approval</h3>
             <div className="flex gap-3">
-              <button onClick={handleApprove} disabled={actionLoading} className="px-5 py-2 bg-green-600 hover:bg-green-500 disabled:opacity-60 text-white text-sm rounded-lg font-medium transition">
+              <button onClick={handleApprove} disabled={actionLoading} className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white text-sm font-medium rounded-lg shadow-sm transition-colors">
                 {actionLoading ? 'Processing…' : 'Approve'}
               </button>
-              <button onClick={() => setShowFlag(true)} disabled={actionLoading} className="px-5 py-2 bg-red-600/20 hover:bg-red-600/40 disabled:opacity-60 text-red-400 text-sm rounded-lg font-medium border border-red-600/30 transition">
+              <button onClick={() => setShowFlag(true)} disabled={actionLoading} className="px-5 py-2 bg-red-500/15 hover:bg-red-500/25 disabled:opacity-60 text-red-400 text-sm font-medium rounded-lg ring-1 ring-red-500/30 transition-colors">
                 Flag
               </button>
             </div>
@@ -849,14 +894,14 @@ export default function LoadDetail() {
         )}
 
         {isHA && load.approval_status !== 'PENDING' && (
-          <div className="bg-slate-800 rounded-xl border border-slate-700 p-6">
-            <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-3">Approval</h3>
+          <div className="bg-slate-900 ring-1 ring-white/8 rounded-xl shadow-lg p-6">
+            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-4">Approval</h3>
             <div className="flex items-center gap-3">
               <ApprovalBadge status={load.approval_status} />
-              <button onClick={handleApprove} disabled={actionLoading || load.approval_status === 'APPROVED'} className="px-4 py-1.5 text-xs border border-slate-600 hover:border-slate-500 text-slate-400 hover:text-white rounded-lg transition disabled:opacity-40">
+              <button onClick={handleApprove} disabled={actionLoading || load.approval_status === 'APPROVED'} className="px-4 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 ring-1 ring-white/10 text-slate-400 hover:text-white rounded-lg transition-colors disabled:opacity-40">
                 Re-approve
               </button>
-              <button onClick={() => setShowFlag(true)} disabled={actionLoading || load.approval_status === 'FLAGGED'} className="px-4 py-1.5 text-xs border border-red-600/30 hover:border-red-500/50 text-red-400 rounded-lg transition disabled:opacity-40">
+              <button onClick={() => setShowFlag(true)} disabled={actionLoading || load.approval_status === 'FLAGGED'} className="px-4 py-1.5 text-xs bg-red-500/15 hover:bg-red-500/25 ring-1 ring-red-500/30 text-red-400 rounded-lg transition-colors disabled:opacity-40">
                 Re-flag
               </button>
             </div>
@@ -864,13 +909,15 @@ export default function LoadDetail() {
         )}
 
         {isDispatcher && !editMode && (
-          <div className="mt-6 pt-4 border-t border-slate-700/50 flex justify-end">
-            <button
-              onClick={() => setShowDeleteConfirm(true)}
-              className="px-4 py-2 bg-red-600/10 hover:bg-red-600/20 border border-red-600/30 text-red-400 hover:text-red-300 text-sm rounded-lg font-medium transition"
-            >
-              Delete Load
-            </button>
+          <div className="mt-8 pt-5 border-t border-white/[0.05] flex justify-end">
+            <Tooltip text="Permanently delete this load" position="top">
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 ring-1 ring-red-500/25 text-red-400 hover:text-red-300 text-sm font-medium rounded-lg transition-colors"
+              >
+                Delete Load
+              </button>
+            </Tooltip>
           </div>
         )}
       </main>

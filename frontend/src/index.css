@@ -1,3 +1,49 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  :root {
+    --color-page: #0c1220;
+  }
+
+  body {
+    background-color: var(--color-page);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Refined scrollbar for dark theme */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.14);
+  }
+
+  /* Date/time inputs in dark mode */
+  input[type="date"],
+  input[type="datetime-local"] {
+    color-scheme: dark;
+  }
+}
+
+@layer utilities {
+  .ring-white\/8 {
+    --tw-ring-color: rgba(255, 255, 255, 0.08);
+  }
+  .ring-white\/\[0\.06\] {
+    --tw-ring-color: rgba(255, 255, 255, 0.06);
+  }
+  .bg-white\/8 {
+    background-color: rgba(255, 255, 255, 0.08);
+  }
+}

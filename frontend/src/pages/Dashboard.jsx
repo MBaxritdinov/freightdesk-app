@@ -7,6 +7,7 @@ import {
 } from 'recharts'
 import { getToken, clearToken } from '../auth'
 import Navbar from '../components/Navbar'
+import { StatCardSkeleton, TableRowSkeleton } from '../components/Skeletons'
 
 const API = axios.create({ baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000' })
 API.interceptors.request.use(config => {
@@ -15,9 +16,8 @@ API.interceptors.request.use(config => {
   return config
 })
 
-const STATUS_COLORS = { PENDING: '#eab308', APPROVED: '#22c55e', FLAGGED: '#ef4444' }
+const STATUS_COLORS = { PENDING: '#f59e0b', APPROVED: '#10b981', FLAGGED: '#ef4444' }
 const PIPELINE_LABELS = { NEW: 'New', ACCEPTED: 'Accepted', DISPATCHED: 'Dispatched', IN_ROUTE: 'In Route', DELIVERED: 'Delivered' }
-
 
 function fmt(v) {
   return '$' + Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
@@ -28,37 +28,42 @@ function fmtDate(iso) {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
-function StatCard({ label, value, sub, accent, onClick }) {
+function StatCard({ label, value, sub, accent, topColor, onClick }) {
   return (
     <div
       onClick={onClick}
-      className={`bg-slate-800 rounded-xl border border-slate-700 p-5 transition ${onClick ? 'cursor-pointer hover:bg-slate-700' : ''}`}
+      className={`relative bg-slate-900 ring-1 ring-white/8 rounded-xl shadow-lg overflow-hidden transition-all duration-150 ${
+        onClick ? 'cursor-pointer hover:ring-white/15 hover:shadow-xl' : ''
+      }`}
     >
-      <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">{label}</p>
-      <p className={`text-2xl font-bold ${accent || 'text-white'}`}>{value}</p>
-      {sub && <p className="text-xs text-slate-500 mt-1">{sub}</p>}
+      {topColor && <div className={`absolute top-0 inset-x-0 h-0.5 ${topColor}`} />}
+      <div className="p-6 pt-5">
+        <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-3">{label}</p>
+        <p className={`text-3xl font-bold tracking-tight ${accent || 'text-white'}`}>{value}</p>
+        {sub && <p className="text-xs text-slate-500 mt-2">{sub}</p>}
+      </div>
     </div>
   )
 }
 
 function ApprovalBadge({ status }) {
   const cls = {
-    PENDING: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
-    APPROVED: 'bg-green-500/20 text-green-400 border-green-500/30',
-    FLAGGED: 'bg-red-500/20 text-red-400 border-red-500/30',
+    PENDING: 'bg-amber-500/15 text-amber-400 ring-1 ring-amber-500/30',
+    APPROVED: 'bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/30',
+    FLAGGED: 'bg-red-500/15 text-red-400 ring-1 ring-red-500/30',
   }
-  return <span className={`px-2 py-0.5 rounded text-xs font-medium border ${cls[status] ?? ''}`}>{status}</span>
+  return <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${cls[status] ?? ''}`}>{status}</span>
 }
 
 function PipelineBadge({ status }) {
   const cls = {
-    NEW: 'bg-slate-600/40 text-slate-400 border-slate-500/30',
-    ACCEPTED: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30',
-    DISPATCHED: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-    IN_ROUTE: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
-    DELIVERED: 'bg-green-500/20 text-green-400 border-green-500/30',
+    NEW: 'bg-slate-700/60 text-slate-400 ring-1 ring-slate-600/40',
+    ACCEPTED: 'bg-cyan-500/15 text-cyan-400 ring-1 ring-cyan-500/30',
+    DISPATCHED: 'bg-blue-500/15 text-blue-400 ring-1 ring-blue-500/30',
+    IN_ROUTE: 'bg-orange-500/15 text-orange-400 ring-1 ring-orange-500/30',
+    DELIVERED: 'bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/30',
   }
-  return <span className={`px-2 py-0.5 rounded text-xs font-medium border ${cls[status] ?? ''}`}>{PIPELINE_LABELS[status] ?? status}</span>
+  return <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${cls[status] ?? ''}`}>{PIPELINE_LABELS[status] ?? status}</span>
 }
 
 // ── DISPATCHER Dashboard ──────────────────────────────────────────────────────
@@ -67,42 +72,42 @@ function DispatcherDashboard({ stats, navigate }) {
   return (
     <>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <StatCard label="Total Active Loads" value={stats.active_loads_count ?? 0} sub="not yet delivered" onClick={() => navigate('/loads')} />
-        <StatCard label="In Route" value={stats.in_route_count ?? 0} sub="currently in transit" accent="text-orange-400" onClick={() => navigate('/loads?load_status=IN_ROUTE')} />
-        <StatCard label="Delivered This Week" value={stats.delivered_week_count ?? 0} sub="completed this week" accent="text-green-400" onClick={() => navigate('/loads?load_status=DELIVERED')} />
-        <StatCard label="Needs Acceptance" value={stats.new_loads_count ?? 0} sub="awaiting dispatcher action" accent="text-yellow-400" onClick={() => navigate('/loads?load_status=NEW')} />
+        <StatCard label="Total Active Loads" value={stats.active_loads_count ?? 0} sub="not yet delivered" topColor="bg-blue-500" onClick={() => navigate('/loads')} />
+        <StatCard label="In Route" value={stats.in_route_count ?? 0} sub="currently in transit" accent="text-orange-400" topColor="bg-orange-500" onClick={() => navigate('/loads?load_status=IN_ROUTE')} />
+        <StatCard label="Delivered This Week" value={stats.delivered_week_count ?? 0} sub="completed this week" accent="text-emerald-400" topColor="bg-emerald-500" onClick={() => navigate('/loads?load_status=DELIVERED')} />
+        <StatCard label="Needs Acceptance" value={stats.new_loads_count ?? 0} sub="awaiting dispatcher action" accent="text-amber-400" topColor="bg-amber-500" onClick={() => navigate('/loads?load_status=NEW')} />
       </div>
 
-      <div className="bg-slate-800 rounded-xl border border-slate-700">
-        <div className="px-5 py-4 border-b border-slate-700">
-          <h3 className="text-sm font-semibold text-white">Recent Loads</h3>
+      <div className="bg-slate-900 ring-1 ring-white/8 rounded-xl shadow-lg overflow-hidden">
+        <div className="px-6 py-4 border-b border-white/[0.06]">
+          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-widest">Recent Loads</h3>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-slate-700">
+              <tr className="bg-slate-800/40 border-b border-white/[0.06]">
                 {['Load #', 'Broker', 'Driver', 'Route', 'Status', 'Created'].map(h => (
-                  <th key={h} className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wide whitespace-nowrap">{h}</th>
+                  <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-white/[0.04]">
               {stats.recent_loads.length === 0 ? (
-                <tr><td colSpan={6} className="text-center py-10 text-slate-500">No loads yet</td></tr>
+                <tr><td colSpan={6} className="text-center py-12 text-slate-600">No loads yet</td></tr>
               ) : (
-                stats.recent_loads.map(l => (
+                stats.recent_loads.map((l, i) => (
                   <tr key={l.id} onClick={() => navigate('/loads/' + l.id)}
-                    className="border-b border-slate-700/50 hover:bg-slate-700/40 cursor-pointer transition">
-                    <td className="px-4 py-3 font-mono text-white whitespace-nowrap">{l.load_number}</td>
-                    <td className="px-4 py-3 text-slate-300 whitespace-nowrap">{l.broker_name}</td>
-                    <td className="px-4 py-3 text-slate-300 whitespace-nowrap">{l.driver_name ?? <span className="text-slate-600">—</span>}</td>
-                    <td className="px-4 py-3 text-slate-400 text-xs whitespace-nowrap">
+                    className={`hover:bg-white/[0.03] cursor-pointer transition-colors ${i % 2 === 1 ? 'bg-slate-800/20' : ''}`}>
+                    <td className="px-5 py-3 font-mono text-sm text-white whitespace-nowrap">{l.load_number}</td>
+                    <td className="px-5 py-3 text-slate-300 text-sm whitespace-nowrap">{l.broker_name}</td>
+                    <td className="px-5 py-3 text-slate-400 text-sm whitespace-nowrap">{l.driver_name ?? <span className="text-slate-600">—</span>}</td>
+                    <td className="px-5 py-3 text-slate-500 text-xs whitespace-nowrap">
                       {l.pu_location && l.del_location
-                        ? <>{l.pu_location} <span className="text-slate-600 mx-1">→</span> {l.del_location}</>
-                        : <span className="text-slate-600">—</span>}
+                        ? <>{l.pu_location} <span className="text-slate-700 mx-1">→</span> {l.del_location}</>
+                        : <span className="text-slate-700">—</span>}
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap"><PipelineBadge status={l.load_status} /></td>
-                    <td className="px-4 py-3 text-slate-400 text-xs whitespace-nowrap">{fmtDate(l.created_at)}</td>
+                    <td className="px-5 py-3 whitespace-nowrap"><PipelineBadge status={l.load_status} /></td>
+                    <td className="px-5 py-3 text-slate-500 text-xs whitespace-nowrap">{fmtDate(l.created_at)}</td>
                   </tr>
                 ))
               )}
@@ -120,91 +125,91 @@ function HADashboard({ stats, navigate }) {
   return (
     <>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <StatCard label="Loads This Week" value={stats.total_loads_week} sub="created this week" onClick={() => navigate('/loads')} />
-        <StatCard label="Gross Revenue" value={fmt(stats.gross_revenue_week)} sub="this week" />
-        <StatCard label="Net Revenue" value={fmt(stats.net_revenue_week)} sub="after deductions" />
-        <StatCard label="Pending Approval" value={stats.pending_count} sub={stats.pending_count === 1 ? 'load needs review' : 'loads need review'} onClick={() => navigate('/loads?approval_status=PENDING')} />
+        <StatCard label="Loads This Week" value={stats.total_loads_week} sub="created this week" topColor="bg-blue-500" onClick={() => navigate('/loads')} />
+        <StatCard label="Gross Revenue" value={fmt(stats.gross_revenue_week)} sub="this week" topColor="bg-slate-600" />
+        <StatCard label="Net Revenue" value={fmt(stats.net_revenue_week)} sub="after deductions" accent="text-emerald-400" topColor="bg-emerald-500" />
+        <StatCard label="Pending Approval" value={stats.pending_count} sub={stats.pending_count === 1 ? 'load needs review' : 'loads need review'} accent="text-amber-400" topColor="bg-amber-500" onClick={() => navigate('/loads?approval_status=PENDING')} />
       </div>
 
       {stats.total_loads_week === 0 && (
-        <div className="flex flex-col items-center justify-center py-16 gap-5 bg-slate-800 rounded-xl border border-slate-700 mb-8">
-          <svg className="w-16 h-16 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+        <div className="flex flex-col items-center justify-center py-16 gap-5 bg-slate-900 ring-1 ring-white/8 rounded-xl shadow-lg mb-8">
+          <svg className="w-14 h-14 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z" />
             <path strokeLinecap="round" strokeLinejoin="round" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10l2 1h7l1-1zM13 16l2-3h4l2 3H13z" />
           </svg>
           <div className="text-center">
             <p className="text-white font-semibold text-lg">No loads this week yet</p>
-            <p className="text-slate-400 text-sm mt-1">Connect Gmail to auto-import or add loads manually.</p>
+            <p className="text-slate-500 text-sm mt-1">Connect Gmail to auto-import or add loads manually.</p>
           </div>
           <div className="flex items-center gap-3">
-            <button onClick={() => navigate('/settings')} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-lg font-medium transition">Connect Gmail</button>
-            <button onClick={() => navigate('/loads')} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 border border-slate-600 text-white text-sm rounded-lg font-medium transition">Add Load Manually</button>
+            <button onClick={() => navigate('/settings')} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg shadow-sm transition-colors">Connect Gmail</button>
+            <button onClick={() => navigate('/loads')} className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-medium rounded-lg ring-1 ring-white/10 transition-colors">Add Load Manually</button>
           </div>
         </div>
       )}
 
       {stats.total_loads_week > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-8">
-          <div className="lg:col-span-2 bg-slate-800 rounded-xl border border-slate-700 p-5">
-            <h3 className="text-sm font-semibold text-white mb-4">Loads by Day</h3>
+          <div className="lg:col-span-2 bg-slate-900 ring-1 ring-white/8 rounded-xl shadow-lg p-6">
+            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-5">Loads by Day</h3>
             <ResponsiveContainer width="100%" height={180}>
               <BarChart data={stats.loads_by_day} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-                <XAxis dataKey="day" tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false} allowDecimals={false} />
-                <Tooltip contentStyle={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 8 }} labelStyle={{ color: '#f1f5f9' }} itemStyle={{ color: '#60a5fa' }} cursor={{ fill: 'rgba(148,163,184,0.08)' }} />
-                <Bar dataKey="count" name="Loads" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                <XAxis dataKey="day" tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
+                <Tooltip contentStyle={{ background: '#0f172a', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8 }} labelStyle={{ color: '#f1f5f9' }} itemStyle={{ color: '#60a5fa' }} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
+                <Bar dataKey="count" name="Loads" fill="#3b82f6" radius={[3, 3, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
 
-          <div className="bg-slate-800 rounded-xl border border-slate-700 p-5">
-            <h3 className="text-sm font-semibold text-white mb-4">By Approval Status</h3>
+          <div className="bg-slate-900 ring-1 ring-white/8 rounded-xl shadow-lg p-6">
+            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-5">By Approval Status</h3>
             <ResponsiveContainer width="100%" height={180}>
               <PieChart>
                 <Pie data={stats.loads_by_status.filter(s => s.count > 0)} dataKey="count" nameKey="status" cx="50%" cy="50%" outerRadius={64} innerRadius={36}>
                   {stats.loads_by_status.filter(s => s.count > 0).map(entry => (
-                    <Cell key={entry.status} fill={STATUS_COLORS[entry.status] ?? '#64748b'} />
+                    <Cell key={entry.status} fill={STATUS_COLORS[entry.status] ?? '#475569'} />
                   ))}
                 </Pie>
-                <Tooltip contentStyle={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 8 }} itemStyle={{ color: '#f1f5f9' }} />
-                <Legend formatter={value => <span style={{ color: '#94a3b8', fontSize: 12 }}>{value}</span>} />
+                <Tooltip contentStyle={{ background: '#0f172a', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8 }} itemStyle={{ color: '#f1f5f9' }} />
+                <Legend formatter={value => <span style={{ color: '#64748b', fontSize: 11 }}>{value}</span>} />
               </PieChart>
             </ResponsiveContainer>
           </div>
         </div>
       )}
 
-      <div className="bg-slate-800 rounded-xl border border-slate-700">
-        <div className="px-5 py-4 border-b border-slate-700">
-          <h3 className="text-sm font-semibold text-white">Recent Loads</h3>
+      <div className="bg-slate-900 ring-1 ring-white/8 rounded-xl shadow-lg overflow-hidden">
+        <div className="px-6 py-4 border-b border-white/[0.06]">
+          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-widest">Recent Loads</h3>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-slate-700">
+              <tr className="bg-slate-800/40 border-b border-white/[0.06]">
                 {['Load #', 'Broker', 'Driver', 'Route', 'Gross', 'Status', 'Created'].map(h => (
-                  <th key={h} className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wide whitespace-nowrap">{h}</th>
+                  <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-white/[0.04]">
               {stats.recent_loads.length === 0 ? (
-                <tr><td colSpan={7} className="text-center py-10 text-slate-500">No loads yet</td></tr>
+                <tr><td colSpan={7} className="text-center py-12 text-slate-600">No loads yet</td></tr>
               ) : (
-                stats.recent_loads.map(l => (
+                stats.recent_loads.map((l, i) => (
                   <tr key={l.id} onClick={() => navigate('/loads/' + l.id)}
-                    className="border-b border-slate-700/50 hover:bg-slate-700/40 cursor-pointer transition">
-                    <td className="px-4 py-3 font-mono text-white whitespace-nowrap">{l.load_number}</td>
-                    <td className="px-4 py-3 text-slate-300 whitespace-nowrap">{l.broker_name}</td>
-                    <td className="px-4 py-3 text-slate-300 whitespace-nowrap">{l.driver_name ?? <span className="text-slate-600">—</span>}</td>
-                    <td className="px-4 py-3 text-slate-400 text-xs whitespace-nowrap">
+                    className={`hover:bg-white/[0.03] cursor-pointer transition-colors ${i % 2 === 1 ? 'bg-slate-800/20' : ''}`}>
+                    <td className="px-5 py-3 font-mono text-sm text-white whitespace-nowrap">{l.load_number}</td>
+                    <td className="px-5 py-3 text-slate-300 text-sm whitespace-nowrap">{l.broker_name}</td>
+                    <td className="px-5 py-3 text-slate-400 text-sm whitespace-nowrap">{l.driver_name ?? <span className="text-slate-600">—</span>}</td>
+                    <td className="px-5 py-3 text-slate-500 text-xs whitespace-nowrap">
                       {l.pu_location && l.del_location
-                        ? <>{l.pu_location} <span className="text-slate-600 mx-1">→</span> {l.del_location}</>
-                        : <span className="text-slate-600">—</span>}
+                        ? <>{l.pu_location} <span className="text-slate-700 mx-1">→</span> {l.del_location}</>
+                        : <span className="text-slate-700">—</span>}
                     </td>
-                    <td className="px-4 py-3 text-white font-mono whitespace-nowrap">{'$' + Number(l.gross_rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                    <td className="px-4 py-3 whitespace-nowrap"><ApprovalBadge status={l.approval_status} /></td>
-                    <td className="px-4 py-3 text-slate-400 text-xs whitespace-nowrap">{fmtDate(l.created_at)}</td>
+                    <td className="px-5 py-3 text-white font-mono text-sm whitespace-nowrap">{'$' + Number(l.gross_rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td className="px-5 py-3 whitespace-nowrap"><ApprovalBadge status={l.approval_status} /></td>
+                    <td className="px-5 py-3 text-slate-500 text-xs whitespace-nowrap">{fmtDate(l.created_at)}</td>
                   </tr>
                 ))
               )}
@@ -244,26 +249,45 @@ export default function Dashboard() {
 
   function handleLogout() { clearToken(); navigate('/login') }
 
-  if (!user || !stats) {
-    return <div className="min-h-screen flex items-center justify-center bg-slate-900"><p className="text-slate-400">Loading…</p></div>
-  }
+  if (!user) return <div className="min-h-screen bg-[#0c1220]" />
 
   return (
-    <div className="min-h-screen bg-slate-900">
+    <div className="min-h-screen bg-[#0c1220]">
       <Navbar active="Dashboard" user={user} onLogout={handleLogout} />
 
-      <main className="max-w-7xl mx-auto px-6 py-8">
-        <div className="mb-6">
-          <h2 className="text-2xl font-bold text-white">Dashboard</h2>
-          <p className="text-sm text-slate-400 mt-1">
-            {`Week of ${new Date(stats.week_start + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${new Date(stats.week_end + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`}
-          </p>
+      <main className="max-w-7xl mx-auto px-6 py-10">
+        <div className="mb-8">
+          <h2 className="text-2xl font-bold text-white tracking-tight">Dashboard</h2>
+          {stats && (
+            <p className="text-sm text-slate-500 mt-1">
+              {`Week of ${new Date(stats.week_start + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${new Date(stats.week_end + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`}
+            </p>
+          )}
         </div>
 
-        {user.role === 'HEAD_ACCOUNTANT'
-          ? <HADashboard stats={stats} navigate={navigate} />
-          : <DispatcherDashboard stats={stats} navigate={navigate} />
-        }
+        {!stats ? (
+          <>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+              {[0,1,2,3].map(i => <StatCardSkeleton key={i} />)}
+            </div>
+            <div className="bg-slate-900 ring-1 ring-white/8 rounded-xl shadow-lg overflow-hidden">
+              <div className="px-6 py-4 border-b border-white/[0.06]">
+                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-widest">Recent Loads</h3>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <tbody className="divide-y divide-white/[0.04]">
+                    {[0,1,2,3,4].map(i => <TableRowSkeleton key={i} cols={6} />)}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </>
+        ) : user.role === 'HEAD_ACCOUNTANT' ? (
+          <HADashboard stats={stats} navigate={navigate} />
+        ) : (
+          <DispatcherDashboard stats={stats} navigate={navigate} />
+        )}
       </main>
     </div>
   )
